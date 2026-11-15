@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}हजेरीची नोंद · {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <h1>{{ 'नोंद दुरुस्त करा' if entry else 'नोंद जोडा' }}</h1>
+  <p class="muted">कामगार: <strong>{{ emp.name }}</strong></p>
+  <form method="post">
+    {{ csrf_input() }}
+    <label>आत येण्याची तारीख व वेळ
+      <input type="datetime-local" name="in_time" required max="{{ max_dt }}"
+             value="{{ entry.in_time|inputdt if entry else '' }}">
+    </label>
+    <label>बाहेर जाण्याची तारीख व वेळ
+      <input type="datetime-local" name="out_time" max="{{ max_dt }}"
+             value="{{ entry.out_time|inputdt if entry and entry.out_time else '' }}">
+    </label>
+    <p class="muted small">बाहेरची वेळ रिकामी ठेवल्यास नोंद 'सुरू' म्हणून राहील.</p>
+    <button class="btn primary block">जतन करा</button>
+    <a class="btn block" href="{{ url_for('employee_detail', emp_id=emp.id) }}">रद्द करा</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+# Render Blueprint: वेब सर्व्हिस + PostgreSQL एकाच वेळी तयार होतात.
+# वापर: कोड GitHub वर टाका → Render Dashboard → New → Blueprint → हा रिपॉझिटरी निवडा.
+services:
+  - type: web
+    name: hajeri-portal
+    runtime: python
+    plan: free            # खऱ्या वापरासाठी 'starter' निवडा (free सर्व्हिस निष्क्रिय असताना झोपते)
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 --threads 4 -b 0.0.0.0:$PORT app:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.3
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hajeri-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SETUP_KEY          # पहिल्यांदा Admin तयार करताना लागणारी किल्ली (Dashboard → Environment मध्ये पहा)
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: SHOP_NAME
+        value: हजेरी पोर्टल
+      - key: FULL_DAY_HOURS
+        value: "8"
+
+databases:
+  - name: hajeri-db
+    plan: free            # Render ची free Postgres काही कालावधीनंतर कालबाह्य होते; खऱ्या वापरासाठी 'basic-256mb' निवडा
+    databaseName: hajeri
+    user: hajeri

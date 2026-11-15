@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}लॉगिन · {{ shop_name }}{% endblock %}
+{% block content %}
+{% include "_hero.html" %}
+<div class="card narrow">
+  <h1>लॉगिन</h1>
+  <form method="post">
+    {{ csrf_input() }}
+    <label>युजरनेम
+      <input name="username" required maxlength="30" autocapitalize="none" autocomplete="username" value="{{ username or '' }}">
+    </label>
+    <label>पासवर्ड
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button class="btn primary block">लॉगिन करा</button>
+  </form>
+  <p class="muted center">पासवर्ड अजून सेट केला नाही? <a href="{{ url_for('first_login') }}">पहिले लॉगिन (कोडने)</a></p>
+</div>
+{% endblock %}

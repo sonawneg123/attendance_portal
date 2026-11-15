@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}कामगार · {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="head-row">
+  <div>
+    <h1>कामगार</h1>
+    <p class="muted">आजची तारीख: {{ today|mdate }}</p>
+  </div>
+  <a class="btn primary" href="{{ url_for('employee_form') }}">+ कामगार जोडा</a>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="stat-label">एकूण कामगार</span><span class="stat-value">{{ total|digits }}</span></div>
+  <div class="stat"><span class="stat-label">सध्या कामावर</span><span class="stat-value">{{ inside|digits }}</span></div>
+  <div class="stat"><span class="stat-label">आज गैरहजर</span><span class="stat-value">{{ absent|digits }}</span></div>
+  <div class="stat"><span class="stat-label">पासवर्ड सेट बाकी</span><span class="stat-value">{{ pending|digits }}</span></div>
+</div>
+
+{% if cards %}
+<div class="emp-list">
+  {% for c in cards %}
+  {% set e = c.e %}
+  <div class="card emp">
+    <div class="emp-top">
+      <div>
+        <a class="emp-name" href="{{ url_for('employee_detail', emp_id=e.id) }}">{{ e.name }}</a>
+        <div class="muted">युजरनेम: {{ e.username }}{% if e.designation %} · {{ e.designation }}{% endif %}</div>
+        <div class="muted">रोजंदारी: <strong>{% if e.daily_wage is none %}ठरवलेली नाही{% else %}{{ e.daily_wage|mrs }} / दिवस{% endif %}</strong></div>
+      </div>
+      <div>
+        {% if c.status == 'pending' %}<span class="badge pending">पासवर्ड सेट बाकी</span>
+        {% elif c.status == 'in' %}<span class="badge in">आत (कामावर)</span>
+        {% elif c.status == 'out' %}<span class="badge out">बाहेर</span>
+        {% else %}<span class="badge absent">आज गैरहजर</span>{% endif %}
+      </div>
+    </div>
+
+    {% if c.status == 'pending' %}
+      <div class="code-box">
+        <span class="muted">पहिल्या लॉगिनचा कोड:</span>
+        <span class="code">{{ e.signup_code }}</span>
+      </div>
+      <p class="muted small">हा कोड कामगाराला द्या. तो 'पहिले लॉगिन (कोडने)' मध्ये युजरनेमसह वापरून स्वतःचा पासवर्ड ठरवेल.</p>
+    {% else %}
+      <div class="muted">आजचे काम: <strong>{{ c.today_secs|mdur }}</strong></div>
+      {% if c.incomplete %}
+        <div class="badge warn">मागील दिवसाची बाहेरची वेळ नोंदवलेली नाही</div>
+      {% endif %}
+    {% endif %}
+
+    <div class="actions">
+      <a class="btn small" href="{{ url_for('employee_detail', emp_id=e.id) }}">हजेरी पहा</a>
+      <a class="btn small" href="{{ url_for('employee_form', emp_id=e.id) }}">संपादन / रोजंदारी</a>
+      <form method="post" action="{{ url_for('employee_reset', emp_id=e.id) }}" class="inline"
+            onsubmit="return confirm('{{ 'नवीन कोड तयार होईल' if c.status == 'pending' else 'पासवर्ड रीसेट होईल व नवीन कोड तयार होईल' }}. पुढे जायचे का?');">
+        {{ csrf_input() }}
+        <button class="btn small">{{ 'नवीन कोड' if c.status == 'pending' else 'पासवर्ड रीसेट' }}</button>
+      </form>
+      <form method="post" action="{{ url_for('employee_delete', emp_id=e.id) }}" class="inline"
+            onsubmit="return confirm('{{ e.name }} यांची सर्व हजेरी नोंद कायमची हटवली जाईल. खात्री आहे का?');">
+        {{ csrf_input() }}
+        <button class="btn small danger-outline">हटवा</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card center">
+  <p class="muted">अजून एकही कामगार जोडलेला नाही.</p>
+  <a class="btn primary" href="{{ url_for('employee_form') }}">पहिला कामगार जोडा</a>
+</div>
+{% endif %}
+{% endblock %}

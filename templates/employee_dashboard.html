@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}माझी हजेरी · {{ shop_name }}{% endblock %}
+{% block content %}
+<h1>नमस्कार, {{ g.user.name }}</h1>
+
+<div class="card punch {{ 'is-in' if current and not current.incomplete else '' }}">
+  <span class="lamp"></span>
+  {% if current and not current.incomplete %}
+    <p class="status-line">आपण सध्या <strong>कामावर आहात</strong></p>
+    <p class="muted">आत आल्याची वेळ: {{ current.in_time|mtime }}</p>
+    <p class="timer" id="timer" data-secs="{{ current.secs }}">{{ current.secs|mdur }}</p>
+    <form method="post" action="{{ url_for('punch') }}">
+      {{ csrf_input() }}
+      <button class="btn big danger block">हजेरी संपवा (बाहेर)</button>
+    </form>
+  {% elif current and current.incomplete %}
+    <p class="status-line warn">मागील दिवसाची ({{ current.in_time|mdate }}) बाहेर जाण्याची वेळ नोंदवलेली नाही.</p>
+    <p class="muted">कृपया कंत्राटदाराला सांगून ती दुरुस्त करून घ्या.</p>
+    <form method="post" action="{{ url_for('punch') }}">
+      {{ csrf_input() }}
+      <button class="btn big danger block">आत्ता बाहेर नोंदवा</button>
+    </form>
+  {% else %}
+    <p class="status-line">आपण सध्या <strong>कामावर नाही</strong></p>
+    <form method="post" action="{{ url_for('punch') }}">
+      {{ csrf_input() }}
+      <button class="btn big primary block">हजेरी सुरू करा (आत)</button>
+    </form>
+  {% endif %}
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="stat-label">आजचे एकूण काम</span><span class="stat-value">{{ today_secs|mdur }}</span></div>
+  <div class="stat"><span class="stat-label">{{ month|mmonth }} मधील एकूण</span><span class="stat-value">{{ month_secs|mdur }}</span></div>
+  <div class="stat"><span class="stat-label">हजेरीचे दिवस</span><span class="stat-value">{{ days|length|digits }}</span></div>
+  {% if wage %}
+  <div class="stat"><span class="stat-label">रोजंदारी (प्रति दिवस)</span><span class="stat-value">{{ wage|mrs }}</span></div>
+  {% endif %}
+  {% if wage or month_pay is not none %}
+  <div class="stat"><span class="stat-label">या महिन्याची मजुरी</span><span class="stat-value">{{ month_pay|mrs }}</span></div>
+  {% endif %}
+</div>
+
+<div class="month-nav">
+  <a class="btn small" href="{{ url_for('employee_home', month=prev_month) }}">‹ मागील महिना</a>
+  <strong>{{ month|mmonth }}</strong>
+  {% if not is_current_month %}
+    <a class="btn small" href="{{ url_for('employee_home', month=next_month) }}">पुढील महिना ›</a>
+  {% else %}
+    <span class="btn small disabled">पुढील महिना ›</span>
+  {% endif %}
+</div>
+
+{% if days %}
+{% set manage = false %}
+{% include "_days.html" %}
+<p class="muted small">{{ full_day_hours }} तास किंवा जास्त काम = पूर्ण रोजंदारी. त्यापेक्षा कमी तास झाल्यास त्या दिवसाची मजुरी कंत्राटदार ठरवतो; तोपर्यंत दाखवलेली रक्कम प्रमाणातील अंदाज आहे.</p>
+{% else %}
+<div class="card center muted">या महिन्यात अजून हजेरीची नोंद नाही.</div>
+{% endif %}
+
+<script>
+(function () {
+  var el = document.getElementById('timer');
+  if (!el) return;
+  var secs = parseInt(el.dataset.secs, 10) || 0;
+  var dev = document.body.dataset.dev === '1';
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function conv(s) {
+    return dev ? s.replace(/[0-9]/g, function (d) { return '०१२३४५६७८९'[d]; }) : s;
+  }
+  function render() {
+    var h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+    el.textContent = conv(pad(h) + ':' + pad(m) + ':' + pad(s));
+  }
+  render();
+  setInterval(function () { secs += 1; render(); }, 1000);
+})();
+</script>
+{% endblock %}

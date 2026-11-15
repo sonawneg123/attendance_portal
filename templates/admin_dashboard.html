@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}कंत्राटदार · {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="head-row">
+  <div>
+    <h1>कंत्राटदार</h1>
+    <p class="muted">Admin: {{ g.user.name }}</p>
+  </div>
+  <a class="btn primary" href="{{ url_for('contractor_form') }}">+ कंत्राटदार जोडा</a>
+</div>
+
+<div class="stats">
+  <div class="stat"><span class="stat-label">एकूण कंत्राटदार</span><span class="stat-value">{{ contractors|length|digits }}</span></div>
+  <div class="stat"><span class="stat-label">एकूण कामगार</span><span class="stat-value">{{ total_emps|digits }}</span></div>
+  <div class="stat"><span class="stat-label">पासवर्ड सेट बाकी</span><span class="stat-value">{{ pending|digits }}</span></div>
+</div>
+
+{% if contractors %}
+<div class="emp-list">
+  {% for c in contractors %}
+  <div class="card emp">
+    <div class="emp-top">
+      <div>
+        <span class="emp-name">{{ c.name }}</span>
+        <div class="muted">युजरनेम: {{ c.username }} · कामगार: {{ c.emp_count|digits }}</div>
+      </div>
+      <div>
+        {% if c.password_hash %}<span class="badge in">सक्रिय</span>
+        {% else %}<span class="badge pending">पासवर्ड सेट बाकी</span>{% endif %}
+      </div>
+    </div>
+
+    {% if not c.password_hash %}
+      <div class="code-box">
+        <span class="muted">पहिल्या लॉगिनचा कोड:</span>
+        <span class="code">{{ c.signup_code }}</span>
+      </div>
+      <p class="muted small">हा कोड कंत्राटदाराला द्या. तो 'पहिले लॉगिन (कोडने)' मध्ये युजरनेमसह वापरून स्वतःचा पासवर्ड सेट करेल.</p>
+    {% endif %}
+
+    <div class="actions">
+      <a class="btn small" href="{{ url_for('contractor_form', cid=c.id) }}">संपादन</a>
+      <form method="post" action="{{ url_for('contractor_reset', cid=c.id) }}" class="inline"
+            onsubmit="return confirm('{{ 'नवीन कोड तयार होईल' if not c.password_hash else 'पासवर्ड रीसेट होईल व नवीन कोड तयार होईल' }}. पुढे जायचे का?');">
+        {{ csrf_input() }}
+        <button class="btn small">{{ 'नवीन कोड' if not c.password_hash else 'पासवर्ड रीसेट' }}</button>
+      </form>
+      <form method="post" action="{{ url_for('contractor_delete', cid=c.id) }}" class="inline"
+            onsubmit="return confirm('{{ c.name }} व त्यांचे {{ c.emp_count|digits }} कामगार आणि त्यांची सर्व हजेरी नोंद कायमची हटवली जाईल. खात्री आहे का?');">
+        {{ csrf_input() }}
+        <button class="btn small danger-outline">हटवा</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card center">
+  <p class="muted">अजून एकही कंत्राटदार जोडलेला नाही.</p>
+  <a class="btn primary" href="{{ url_for('contractor_form') }}">पहिला कंत्राटदार जोडा</a>
+</div>
+{% endif %}
+{% endblock %}

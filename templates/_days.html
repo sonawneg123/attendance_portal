@@ -1,0 +1,66 @@
+{# दिवसनिहाय कार्ड्स. manage=true → कंत्राटदार (दुरुस्ती/हटवा/मजुरी ठरवणे), false → कामगार (फक्त पाहणे) #}
+<div class="days">
+{% for d in days %}
+  <div class="day {{ 'needs' if manage and d.needs_decision }}">
+    <div class="day-head">
+      <div class="day-date">{{ d.date|mdate }}</div>
+      <div class="day-hours">{% if d.incomplete %}—{% else %}{{ d.secs|mdur }}{% endif %}</div>
+    </div>
+
+    <ul class="sess">
+    {% for s in d.sessions %}
+      <li>
+        <span class="t-in">{{ s.in_time|mtime }}</span>
+        <span class="arrow">→</span>
+        <span class="t-out">
+          {% if s.out_time %}{{ s.out_time|mtime }}
+          {% elif s.incomplete %}<span class="badge warn">बाहेरची नोंद नाही</span>
+          {% else %}<span class="badge in">सुरू</span>{% endif %}
+        </span>
+        {% if d.sessions|length > 1 and not s.incomplete %}<span class="muted small">({{ s.secs|mdur }})</span>{% endif %}
+        {% if manage %}
+        <span class="sess-actions">
+          <a class="btn small" href="{{ url_for('entry_form', emp_id=emp.id, entry_id=s.id) }}">दुरुस्त करा</a>
+          <form method="post" action="{{ url_for('entry_delete', emp_id=emp.id, entry_id=s.id) }}" class="inline"
+                onsubmit="return confirm('ही नोंद हटवायची का?');">
+            {{ csrf_input() }}
+            <button class="btn small danger-outline">हटवा</button>
+          </form>
+        </span>
+        {% endif %}
+      </li>
+    {% endfor %}
+    </ul>
+
+    <div class="day-pay">
+      <div class="pay-line">
+        <span class="muted">मजुरी</span>
+        <strong class="pay-amt">{{ d.pay|mrs }}</strong>
+        {% if not d.short %}<span class="badge in">पूर्ण दिवस</span>
+        {% elif d.running %}<span class="badge in">दिवस सुरू आहे</span>
+        {% elif d.incomplete %}<span class="badge warn">बाहेरची वेळ दुरुस्त करा</span>
+        {% elif d.override is not none %}<span class="badge custom">{{ 'तुम्ही ठरवली' if manage else 'कंत्राटदाराने ठरवली' }}</span>
+        {% else %}<span class="badge warn">कमी तास · ठरवायची बाकी{% if d.pay is not none %} (अंदाज){% endif %}</span>{% endif %}
+      </div>
+
+      {% if manage and d.decidable %}
+      <form method="post" action="{{ url_for('pay_set', emp_id=emp.id) }}" class="payform">
+        {{ csrf_input() }}
+        <input type="hidden" name="date" value="{{ d.date }}">
+        <input type="hidden" name="from" value="{{ start.isoformat() }}">
+        <input type="hidden" name="to" value="{{ end.isoformat() }}">
+        <label class="pay-label">या दिवसाची मजुरी ठरवा
+          <span class="pay-input"><span class="rs">₹</span>
+            <input type="number" name="amount" min="0" step="0.01" inputmode="decimal" required
+                   {% if emp.daily_wage %}max="{{ emp.daily_wage }}"{% endif %}
+                   value="{{ '%g' % (d.override if d.override is not none else (d.auto_pay or 0)) }}">
+          </span>
+        </label>
+        <button class="btn small primary" name="action" value="set">ठरवा</button>
+        {% if d.override is not none %}<button class="btn small" name="action" value="clear" formnovalidate>आपोआप</button>{% endif %}
+      </form>
+      {% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>

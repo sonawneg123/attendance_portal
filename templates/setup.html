@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}प्रारंभिक सेटअप · {{ shop_name }}{% endblock %}
+{% block content %}
+{% include "_hero.html" %}
+<div class="card narrow">
+  <h1>Admin खाते तयार करा</h1>
+  <p class="muted">हे पोर्टल पहिल्यांदाच सुरू होत आहे. कृपया एकमेव Admin खाते तयार करा. हे पान फक्त एकदाच दिसेल. Admin कंत्राटदार जोडतो, बदलतो व हटवतो.</p>
+  <form method="post">
+    {{ csrf_input() }}
+    {% if need_key %}
+    <label>सेटअप किल्ली (Render मधील SETUP_KEY)
+      <input name="setup_key" required autocomplete="off">
+    </label>
+    {% endif %}
+    <label>नाव
+      <input name="name" required maxlength="80" value="{{ form.name }}" autocomplete="name">
+    </label>
+    <label>युजरनेम (इंग्रजी अक्षरे/अंक, उदा. admin)
+      <input name="username" required maxlength="30" autocapitalize="none" autocomplete="username" value="{{ form.username }}">
+    </label>
+    <label>पासवर्ड (किमान ४ अक्षरे)
+      <input type="password" name="password" required minlength="4" autocomplete="new-password">
+    </label>
+    <label>पासवर्ड पुन्हा लिहा
+      <input type="password" name="password2" required minlength="4" autocomplete="new-password">
+    </label>
+    <button class="btn primary block">Admin खाते तयार करा</button>
+  </form>
+</div>
+{% endblock %}

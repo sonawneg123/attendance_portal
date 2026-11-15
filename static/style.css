@@ -1,0 +1,236 @@
+/* हजेरी पोर्टल — फॅब्रिकेशन शॉप थीम: स्टील, सेफ्टी-पिवळा, हॅझार्ड पट्टे */
+:root {
+  --steel-900: #14181c;
+  --steel-800: #1d2329;
+  --steel-700: #2b333b;
+  --steel-600: #3d4852;
+  --steel-400: #7a8792;
+  --steel-200: #d3d8dd;
+  --steel-100: #e6e9ec;
+  --steel-50: #f4f6f7;
+  --yellow: #ffc400;
+  --yellow-dark: #d9a600;
+  --orange: #ff6a13;
+  --ok: #1f8a4c;
+  --ok-bg: #dff3e6;
+  --err: #c9302a;
+  --err-bg: #fde8e6;
+  --warn: #8a5a00;
+  --warn-bg: #fff1c4;
+  --ink: #1b2127;
+  --muted: #5d6a75;
+  --radius: 6px;
+  --hazard: repeating-linear-gradient(-45deg, var(--yellow) 0 14px, var(--steel-900) 14px 28px);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Mukta", "Noto Sans Devanagari", "Nirmala UI", "Mangal", system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--ink);
+  background-color: var(--steel-100);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(0,0,0,.025) 0 2px, transparent 2px 10px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,.025) 0 2px, transparent 2px 10px);
+}
+
+h1, h2, .brand, .btn, .stat-value, .stat-label, .emp-name, .tbl th, .badge, .timer {
+  font-family: "Khand", "Mukta", "Noto Sans Devanagari", "Nirmala UI", system-ui, sans-serif;
+}
+
+.wrap { max-width: 1000px; margin: 0 auto; padding: 0 16px; }
+main.wrap { padding-top: 22px; padding-bottom: 44px; }
+
+/* ---------- शीर्षक पट्टी ---------- */
+.top { background: var(--steel-900); color: #fff; position: relative; }
+.top::after { content: ""; display: block; height: 8px; background: var(--hazard); }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 18px; padding-top: 10px; padding-bottom: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 700; font-size: 1.55rem; line-height: 1.1; text-decoration: none; letter-spacing: .01em; }
+.brand small { display: block; font-family: "Mukta", sans-serif; font-weight: 400; font-size: .72rem; color: var(--steel-400); letter-spacing: .08em; }
+.brand svg { flex: 0 0 auto; }
+nav { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+nav a, .linklike {
+  color: #e9edf0; text-decoration: none; font: inherit; font-size: 1rem; font-weight: 600;
+  background: none; border: 0; padding: 6px 12px; cursor: pointer; border-radius: 4px;
+}
+nav a:hover, .linklike:hover { background: var(--steel-700); color: var(--yellow); }
+nav a.active { background: var(--yellow); color: var(--steel-900); }
+.role-tag { font-family: "Khand", sans-serif; font-size: .9rem; background: var(--steel-700); color: var(--yellow); padding: 1px 10px; border-radius: 3px; margin-right: 6px; }
+
+h1 { font-size: 2.1rem; font-weight: 700; margin: 0 0 6px; line-height: 1.15; letter-spacing: .01em; }
+h1::after { content: ""; display: block; width: 64px; height: 5px; margin-top: 6px; background: var(--yellow); box-shadow: 70px 0 0 -0px var(--steel-800); }
+.card h1::after { display: none; }
+a { color: #a45a00; font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: .9rem; }
+.center { text-align: center; }
+
+/* ---------- कार्ड (स्टील प्लेट) ---------- */
+.card {
+  position: relative;
+  background: #fff;
+  border: 1px solid var(--steel-200);
+  border-top: 5px solid var(--steel-800);
+  border-radius: var(--radius);
+  padding: 20px 18px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 0 rgba(0,0,0,.06), 0 6px 14px rgba(20,24,28,.06);
+}
+.card::before, .card::after {
+  content: ""; position: absolute; top: 7px; width: 7px; height: 7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff, var(--steel-400));
+}
+.card::before { left: 8px; }
+.card::after { right: 8px; }
+.card.narrow { max-width: 480px; margin-left: auto; margin-right: auto; }
+
+/* ---------- फॉर्म ---------- */
+label { display: block; font-weight: 600; margin-bottom: 14px; font-size: 1rem; }
+input {
+  display: block; width: 100%; margin-top: 6px; padding: 12px 14px;
+  font: inherit; font-weight: 400; color: var(--ink);
+  background: var(--steel-50); border: 2px solid var(--steel-400); border-radius: 4px;
+}
+input:focus { outline: 3px solid rgba(255, 196, 0, .55); border-color: var(--steel-900); background: #fff; }
+.code-input { text-transform: uppercase; letter-spacing: .25em; font-family: ui-monospace, Consolas, monospace; font-size: 1.3rem; text-align: center; }
+
+/* ---------- बटणे ---------- */
+.btn {
+  display: inline-block; padding: 8px 18px; font-weight: 600; font-size: 1.1rem; line-height: 1.4;
+  color: var(--steel-900); background: #fff; border: 2px solid var(--steel-800);
+  border-bottom-width: 4px; border-radius: 4px; text-decoration: none; cursor: pointer; text-align: center;
+  letter-spacing: .02em; transition: transform .05s;
+}
+.btn:hover { background: var(--steel-100); }
+.btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+.btn.primary { background: var(--yellow); border-color: var(--steel-900); color: var(--steel-900); }
+.btn.primary:hover { background: #ffd23d; }
+.btn.danger { background: var(--err); border-color: #7d1712; color: #fff; }
+.btn.danger:hover { background: #a8231d; }
+.btn.danger-outline { color: var(--err); border-color: var(--err); }
+.btn.danger-outline:hover { background: var(--err-bg); }
+.btn.small { padding: 3px 12px; font-size: .98rem; border-bottom-width: 3px; }
+.btn.block { display: block; width: 100%; margin-top: 10px; }
+.btn.big { padding: 18px; font-size: 1.8rem; border-radius: 6px; }
+.btn.disabled { opacity: .4; pointer-events: none; }
+form.inline { display: inline; margin: 0; }
+
+.flash { padding: 12px 16px; border-radius: 4px; margin-bottom: 14px; font-weight: 600; border: 1px solid; border-left-width: 8px; }
+.flash.success { background: var(--ok-bg); border-color: var(--ok); color: #135c32; }
+.flash.error { background: var(--err-bg); border-color: var(--err); color: #8f1c17; }
+
+.head-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+
+/* ---------- मीटर / आकडे ---------- */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.stat {
+  background: var(--steel-800); color: #fff; border-radius: var(--radius); border-bottom: 4px solid var(--yellow);
+  padding: 10px 16px 8px; display: flex; flex-direction: column; box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.stat-label { color: var(--steel-200); font-size: 1rem; font-weight: 500; line-height: 1.25; }
+.stat-value { font-size: 2.1rem; font-weight: 700; color: var(--yellow); line-height: 1.15; }
+.stat-value.small { font-size: 1.1rem; font-weight: 600; color: #fff; }
+
+/* ---------- हजेरी पॅनल (कामगार) ---------- */
+.punch { text-align: center; background: var(--steel-800); color: #fff; border: 0; border-top: 5px solid var(--steel-600); padding: 22px 18px; }
+.punch.is-in { border-top-color: var(--ok); }
+.punch .muted { color: var(--steel-200); }
+.lamp { display: inline-block; width: 16px; height: 16px; border-radius: 50%; vertical-align: middle; margin-right: 8px; background: #7d1712; box-shadow: 0 0 0 3px var(--steel-700); }
+.is-in .lamp { background: #3be07d; box-shadow: 0 0 0 3px var(--steel-700), 0 0 14px 4px rgba(59,224,125,.7); }
+.status-line { font-size: 1.35rem; margin: 0 0 6px; font-weight: 600; }
+.status-line.warn { color: var(--yellow); }
+.timer {
+  display: inline-block; font-size: 3.4rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: .06em;
+  margin: 10px 0 18px; padding: 2px 22px; color: var(--yellow); background: #000; border-radius: 4px;
+  border: 2px solid var(--steel-600); text-shadow: 0 0 12px rgba(255,196,0,.55);
+}
+.punch .btn { border-color: #000; }
+
+.month-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.month-nav strong { font-family: "Khand", sans-serif; font-size: 1.4rem; }
+
+/* ---------- यादी ---------- */
+.emp-list { display: grid; gap: 14px; }
+.emp { margin-bottom: 0; border-top-color: var(--steel-800); padding-left: 22px; }
+.emp::before { left: 8px; }
+.emp-top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
+.emp-name { font-size: 1.5rem; font-weight: 700; text-decoration: none; color: var(--steel-900); line-height: 1.2; }
+.emp-name:hover { text-decoration: underline; text-decoration-color: var(--yellow); text-decoration-thickness: 4px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--steel-200); }
+
+.code-box { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; background: var(--warn-bg); border: 2px dashed var(--yellow-dark); border-radius: 4px; padding: 10px 14px; }
+.code { font-family: ui-monospace, Consolas, monospace; font-size: 1.7rem; font-weight: 800; letter-spacing: .25em; color: var(--steel-900); user-select: all; }
+
+.badge { display: inline-block; padding: 0 10px; border-radius: 3px; font-size: .95rem; font-weight: 600; background: var(--steel-100); color: var(--steel-600); border: 1px solid var(--steel-200); }
+.badge.in { background: var(--ok-bg); color: #135c32; border-color: #9fd6b3; }
+.badge.out { background: #e1e9f3; color: #25446f; border-color: #b8c9e0; }
+.badge.absent { background: var(--err-bg); color: #8f1c17; border-color: #f0b4af; }
+.badge.pending, .badge.warn { background: var(--warn-bg); color: var(--warn); border-color: #ecce70; }
+.badge.custom { background: var(--steel-800); color: var(--yellow); border-color: var(--steel-800); }
+
+/* ---------- फिल्टर / तक्ता ---------- */
+.filter { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.filter label { margin: 0; flex: 1 1 150px; }
+.filter .btn { flex: 0 0 auto; }
+
+.tbl { width: 100%; border-collapse: collapse; font-size: 1rem; }
+.tbl th { background: var(--steel-800); color: #fff; text-align: left; padding: 8px; font-size: 1.05rem; font-weight: 600; letter-spacing: .02em; }
+.tbl td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--steel-200); vertical-align: top; }
+.tbl tbody tr:nth-child(even) td { background: var(--steel-50); }
+.tbl .date-cell { font-weight: 700; white-space: nowrap; background: #fff; border-right: 1px solid var(--steel-200); }
+.tbl tbody .day-total td, .tbl tfoot td { background: var(--steel-100); font-weight: 700; border-bottom: 2px solid var(--steel-400); }
+.tbl tfoot td { background: var(--yellow); color: var(--steel-900); font-size: 1.1rem; border-bottom: 0; }
+.row-actions { white-space: nowrap; }
+.card:has(.tbl) { overflow-x: auto; }
+
+/* दिवसाचे कार्ड */
+.days { display: grid; gap: 12px; margin-bottom: 14px; }
+.day { background: #fff; border: 1px solid var(--steel-200); border-left: 8px solid var(--steel-800); border-radius: var(--radius); box-shadow: 0 2px 0 rgba(0,0,0,.05); }
+.day.needs { border-left-color: var(--orange); }
+.day-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 8px 14px; background: var(--steel-100); border-bottom: 1px solid var(--steel-200); }
+.day-date { font-family: "Khand", sans-serif; font-size: 1.25rem; font-weight: 700; }
+.day-hours { font-family: "Khand", sans-serif; font-size: 1.25rem; font-weight: 700; background: var(--steel-800); color: var(--yellow); padding: 0 12px; border-radius: 3px; }
+.sess { list-style: none; margin: 0; padding: 6px 14px; }
+.sess li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 0; border-bottom: 1px dashed var(--steel-200); }
+.sess li:last-child { border-bottom: 0; }
+.sess .arrow { color: var(--steel-400); }
+.sess-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+.day-pay { padding: 8px 14px 12px; border-top: 1px solid var(--steel-200); background: var(--steel-50); border-radius: 0 0 var(--radius) 0; }
+.pay-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.pay-amt { font-family: "Khand", sans-serif; font-size: 1.5rem; }
+.payform { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; }
+.pay-label { margin: 0; font-size: .95rem; flex: 1 1 200px; }
+.pay-input { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.pay-input input { margin: 0; font-weight: 700; font-size: 1.15rem; }
+.rs { font-weight: 800; font-size: 1.2rem; }
+.alert-short { background: var(--warn-bg); border: 1px solid #ecce70; border-left: 8px solid var(--orange); border-radius: 4px; padding: 10px 14px; margin-bottom: 14px; font-weight: 600; color: var(--warn); }
+
+/* ---------- लॉगिन हीरो ---------- */
+.hero { max-width: 480px; margin: 6px auto 18px; background: var(--steel-900); color: #fff; border-radius: var(--radius); overflow: hidden; box-shadow: 0 6px 16px rgba(20,24,28,.25); }
+.hero-body { padding: 22px 22px 16px; display: flex; gap: 16px; align-items: center; }
+.hero h2 { font-size: 2rem; line-height: 1.1; margin: 0; font-weight: 700; }
+.hero p { margin: 4px 0 0; color: var(--steel-200); font-size: 1rem; }
+.hero::after { content: ""; display: block; height: 14px; background: var(--hazard); }
+
+.foot { color: var(--muted); font-size: .85rem; padding-bottom: 24px; text-align: center; }
+
+@media (max-width: 560px) {
+  body { font-size: 17px; }
+  h1 { font-size: 1.8rem; }
+  .tbl { font-size: .92rem; }
+  .tbl th, .tbl td { padding: 7px 4px; }
+  .timer { font-size: 2.6rem; padding: 2px 12px; }
+  .brand { font-size: 1.35rem; }
+  .sess-actions { margin-left: 0; width: 100%; }
+}
+
+@media print {
+  .top, .foot, .filter, .actions, .btn, form.inline { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border-top-width: 2px; }
+  .card::before, .card::after { display: none; }
+  .tbl th { background: #ddd !important; color: #000 !important; -webkit-print-color-adjust: exact; }
+}

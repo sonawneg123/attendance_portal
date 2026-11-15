@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="mr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14181c">
+  <title>{% block title %}{{ shop_name }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Khand:wght@500;600;700&family=Mukta:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-dev="{{ dev_digits }}">
+{% set ep = request.endpoint %}
+<header class="top">
+  <div class="wrap bar">
+    <a class="brand" href="{{ url_for('index') }}">
+      <svg width="38" height="38" viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="14" fill="none" stroke="#ffc400" stroke-width="7" stroke-dasharray="4.4 4.4"/>
+        <circle cx="20" cy="20" r="11" fill="#ffc400"/>
+        <circle cx="20" cy="20" r="5" fill="#14181c"/>
+      </svg>
+      <span>{{ shop_name }}<small>फॅब्रिकेशन शॉप · कामगार हजेरी</small></span>
+    </a>
+    {% if g.user %}
+    <nav>
+      <span class="role-tag">{{ {'admin': 'Admin', 'contractor': 'कंत्राटदार', 'employee': 'कामगार'}[g.user.role] }}</span>
+      {% if g.user.role == 'admin' %}
+        <a href="{{ url_for('admin_home') }}" class="{{ 'active' if ep == 'admin_home' }}">कंत्राटदार</a>
+      {% elif g.user.role == 'contractor' %}
+        <a href="{{ url_for('contractor_home') }}" class="{{ 'active' if ep == 'contractor_home' }}">कामगार</a>
+        <a href="{{ url_for('report') }}" class="{{ 'active' if ep == 'report' }}">अहवाल</a>
+      {% else %}
+        <a href="{{ url_for('employee_home') }}" class="{{ 'active' if ep == 'employee_home' }}">माझी हजेरी</a>
+      {% endif %}
+      <a href="{{ url_for('change_password') }}" class="{{ 'active' if ep == 'change_password' }}">पासवर्ड बदला</a>
+      <form method="post" action="{{ url_for('logout') }}" class="inline">
+        {{ csrf_input() }}
+        <button class="linklike">बाहेर पडा</button>
+      </form>
+    </nav>
+    {% endif %}
+  </div>
+</header>
+<main class="wrap">
+  {% for cat, msg in get_flashed_messages(with_categories=true) %}
+    <div class="flash {{ cat }}">{{ msg }}</div>
+  {% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="wrap foot">{{ shop_name }} · सुरक्षित काम, अचूक हजेरी</footer>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}अहवाल · {{ shop_name }}{% endblock %}
+{% block content %}
+<h1>हजेरी व मजुरी अहवाल</h1>
+
+<form method="get" class="card filter">
+  <label>पासून
+    <input type="date" name="from" value="{{ start.isoformat() }}">
+  </label>
+  <label>पर्यंत
+    <input type="date" name="to" value="{{ end.isoformat() }}">
+  </label>
+  <button class="btn">दाखवा</button>
+  <a class="btn" href="{{ url_for('report', **{'from': start.isoformat(), 'to': end.isoformat(), 'csv': 1}) }}">CSV डाउनलोड</a>
+</form>
+
+<p class="muted">कालावधी: {{ start|mdate }} ते {{ end|mdate }}</p>
+
+{% if rows %}
+<div class="card">
+  <table class="tbl">
+    <thead>
+      <tr><th>नाव</th><th>पदनाम</th><th>दिवस</th><th>एकूण काम</th><th>रोजंदारी</th><th>मजुरी</th><th>कमी तासांचे दिवस</th></tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><a href="{{ url_for('employee_detail', emp_id=r.e.id, **{'from': start.isoformat(), 'to': end.isoformat()}) }}">{{ r.e.name }}</a>
+          {% if r.incomplete %}<span class="badge warn">अपूर्ण नोंद</span>{% endif %}
+        </td>
+        <td>{{ r.e.designation or '—' }}</td>
+        <td>{{ r.days|digits }}</td>
+        <td>{{ r.secs|mdur }}</td>
+        <td>{{ r.e.daily_wage|mrs }}</td>
+        <td>{{ r.pay|mrs }}</td>
+        <td>
+          {% if r.pending %}<a class="badge warn" href="{{ url_for('employee_detail', emp_id=r.e.id, **{'from': start.isoformat(), 'to': end.isoformat()}) }}">ठरवायचे बाकी: {{ r.pending|digits }}</a>{% endif %}
+          {% if r.custom %}<span class="badge custom">ठरवलेले: {{ r.custom|digits }}</span>{% endif %}
+          {% if not r.pending and not r.custom %}—{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="day-total"><td colspan="3">सर्व कामगारांचे एकूण</td><td>{{ grand_secs|mdur }}</td><td></td><td>{{ grand_pay|mrs }}</td><td></td></tr>
+    </tfoot>
+  </table>
+</div>
+<p class="muted small">{{ full_day_hours }} तास किंवा जास्त = पूर्ण रोजंदारी. कमी तासांच्या दिवसाची मजुरी कंत्राटदाराने ठरवलेली असल्यास तीच धरली जाते; ठरवलेली नसल्यास प्रमाणातील अंदाज धरला जातो.</p>
+{% else %}
+<div class="card center muted">अजून कामगार जोडलेले नाहीत.</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ 'कंत्राटदार संपादन' if contractor else 'कंत्राटदार जोडा' }} · {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="card narrow">
+  <h1>{{ 'कंत्राटदार संपादन' if contractor else 'कंत्राटदार जोडा' }}</h1>
+  {% if not contractor %}
+  <p class="muted">कंत्राटदार जोडल्यावर एक कोड तयार होईल. तो कोड कंत्राटदाराला द्या — त्याद्वारे तो पहिल्यांदा लॉगिन करून स्वतःचा पासवर्ड सेट करेल.</p>
+  {% endif %}
+  <form method="post">
+    {{ csrf_input() }}
+    <label>कंत्राटदाराचे नाव
+      <input name="name" required maxlength="80" value="{{ form.name }}">
+    </label>
+    <label>युजरनेम (इंग्रजी अक्षरे/अंक, उदा. patil01)
+      <input name="username" required maxlength="30" autocapitalize="none" value="{{ form.username }}">
+    </label>
+    <button class="btn primary block">{{ 'जतन करा' if contractor else 'जोडा व कोड तयार करा' }}</button>
+    <a class="btn block" href="{{ url_for('admin_home') }}">मागे जा</a>
+  </form>
+</div>
+{% endblock %}

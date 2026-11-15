@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{{ emp.name }} · {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="head-row">
+  <div>
+    <h1>{{ emp.name }}</h1>
+    <p class="muted">युजरनेम: {{ emp.username }}{% if emp.designation %} · {{ emp.designation }}{% endif %}</p>
+    <p class="muted">रोजंदारी: <strong>{% if emp.daily_wage is none %}ठरवलेली नाही{% else %}{{ emp.daily_wage|mrs }} / दिवस{% endif %}</strong>
+      · <a href="{{ url_for('employee_form', emp_id=emp.id) }}">बदला</a></p>
+  </div>
+  <a class="btn primary" href="{{ url_for('entry_form', emp_id=emp.id) }}">+ नोंद जोडा</a>
+</div>
+
+{% if pending_days %}
+<div class="alert-short">⚠ {{ pending_days|digits }} दिवसांची मजुरी ठरवायची बाकी आहे — {{ full_day_hours }} तासांपेक्षा कमी काम झालेल्या दिवसासमोर रक्कम लिहून 'ठरवा' दाबा.</div>
+{% endif %}
+
+<form method="get" class="card filter">
+  <label>पासून
+    <input type="date" name="from" value="{{ start.isoformat() }}">
+  </label>
+  <label>पर्यंत
+    <input type="date" name="to" value="{{ end.isoformat() }}">
+  </label>
+  <button class="btn">दाखवा</button>
+</form>
+
+<div class="stats">
+  <div class="stat"><span class="stat-label">कालावधी</span><span class="stat-value small">{{ start|mdate(false) }} ते {{ end|mdate(false) }}</span></div>
+  <div class="stat"><span class="stat-label">हजेरीचे दिवस</span><span class="stat-value">{{ days|length|digits }}</span></div>
+  <div class="stat"><span class="stat-label">एकूण काम</span><span class="stat-value">{{ total_secs|mdur }}</span></div>
+  <div class="stat"><span class="stat-label">एकूण मजुरी</span><span class="stat-value">{{ total_pay|mrs }}</span></div>
+</div>
+
+{% if days %}
+{% set manage = true %}
+{% include "_days.html" %}
+<p class="muted small">{{ full_day_hours }} तास किंवा जास्त = पूर्ण रोजंदारी. त्यापेक्षा कमी तासांच्या दिवसाची मजुरी तुम्ही ठरवता (पूर्ण रोजंदारीपेक्षा जास्त नाही). न ठरवल्यास प्रमाणातील अंदाज वापरला जातो; 'आपोआप' दाबल्यास तुमची रक्कम काढली जाते.</p>
+{% else %}
+<div class="card center muted">या कालावधीत हजेरीची नोंद नाही.</div>
+{% endif %}
+
+<p><a class="btn" href="{{ url_for('contractor_home') }}">‹ कामगार यादीकडे परत</a></p>
+{% endblock %}
