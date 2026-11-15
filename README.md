@@ -45,6 +45,11 @@ Manual setup instead of Blueprint: Web Service, build `pip install -r requiremen
 start `gunicorn -w 2 --threads 4 -b 0.0.0.0:$PORT app:app`, health check `/healthz`, and set `DATABASE_URL`
 (from a Render Postgres "Internal Database URL"), `SECRET_KEY`, `SETUP_KEY`, `COOKIE_SECURE=1`.
 
+## Database: Supabase (free) — already configured in `render.yaml`
+
+`render.yaml` creates only the Render web service; `DATABASE_URL` is entered manually. In Supabase → **Connect** → copy the **Session pooler** string (port 5432; the direct host is IPv6-only on the
+free plan and Render cannot reach it) and paste it as `DATABASE_URL` in Render. URL-encode special characters in the password.
+
 ## Run locally (SQLite, no setup)
 
 ```bash

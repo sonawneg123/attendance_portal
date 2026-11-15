@@ -168,7 +168,8 @@ def open_db():
     if USE_PG:
         if psycopg is None:
             raise RuntimeError("DATABASE_URL दिले आहे पण psycopg स्थापित नाही (pip install -r requirements.txt).")
-        return DB(psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=10))
+        # prepare_threshold=None: Supabase/pgbouncer सारख्या pooler (transaction mode) सोबतही चालण्यासाठी
+        return DB(psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=10, prepare_threshold=None))
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
