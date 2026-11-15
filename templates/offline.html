@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}इंटरनेट नाही · {{ shop_name }}{% endblock %}
+{% block content %}
+<div class="card narrow center">
+  <h1>इंटरनेट बंद आहे</h1>
+  <p class="muted">इंटरनेट जोडणी नसल्यामुळे हे पान उघडता आले नाही. हजेरी नोंदवण्यासाठी इंटरनेट आवश्यक आहे, जेणेकरून आत–बाहेरची वेळ अचूक नोंदली जाईल.</p>
+  <p class="muted">इंटरनेट सुरू करून पुन्हा प्रयत्न करा.</p>
+  <button class="btn primary block" onclick="location.reload()">पुन्हा प्रयत्न करा</button>
+</div>
+{% endblock %}

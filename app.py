@@ -27,7 +27,7 @@ except ImportError:  # स्थानिक SQLite वापरासाठी 
     psycopg = None
 
 from flask import (Flask, Response, abort, flash, g, redirect,
-                   render_template, request, session, url_for)
+                   render_template, request, send_from_directory, session, url_for)
 from markupsafe import Markup
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -540,6 +540,42 @@ def e404(_e):
 # --------------------------------------------------------------------------
 def admin_exists():
     return get_db().execute("SELECT 1 FROM users WHERE role = 'admin'").fetchone() is not None
+
+
+# --------------------------------------------------------------------------
+# PWA: manifest, service worker, ऑफलाइन पान
+# --------------------------------------------------------------------------
+@app.route("/manifest.webmanifest")
+def manifest():
+    import json
+    data = {
+        "name": SHOP_NAME + " — हजेरी", "short_name": SHOP_NAME[:12],
+        "description": "फॅब्रिकेशन शॉप कामगार हजेरी व मजुरी",
+        "lang": "mr", "dir": "ltr", "start_url": "/", "scope": "/", "id": "/",
+        "display": "standalone", "orientation": "portrait",
+        "background_color": "#14181c", "theme_color": "#14181c",
+        "icons": [
+            {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }
+    return Response(json.dumps(data, ensure_ascii=False), mimetype="application/manifest+json")
+
+
+@app.route("/sw.js")
+def service_worker():
+    """रूटवरून द्यावी लागते, म्हणजे संपूर्ण साइटवर लागू होते."""
+    resp = send_from_directory(os.path.join(BASE_DIR, "static"), "sw.js", mimetype="application/javascript")
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
+
+
+@app.route("/offline")
+def offline():
+    g.user = None  # कॅश होणाऱ्या पानात कोणाचीही लॉगिन माहिती/टोकन नको
+    return render_template("offline.html")
 
 
 @app.route("/healthz")

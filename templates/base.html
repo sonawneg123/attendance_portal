@@ -4,6 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#14181c">
+  <link rel="manifest" href="{{ url_for('manifest') }}">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="{{ shop_name }}">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>{% block title %}{{ shop_name }}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -49,5 +56,42 @@
   {% block content %}{% endblock %}
 </main>
 <footer class="wrap foot">{{ shop_name }} · सुरक्षित काम, अचूक हजेरी</footer>
+
+<div id="install-bar" class="install-bar" hidden>
+  <span id="install-text">हे अॅप फोनवर इन्स्टॉल करा</span>
+  <button type="button" class="btn small primary" id="install-btn">इन्स्टॉल करा</button>
+  <button type="button" class="btn small" id="install-close" aria-label="बंद करा">✕</button>
+</div>
+<script>
+(function () {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js', {scope: '/'}); });
+  }
+  var bar = document.getElementById('install-bar');
+  if (!bar) return;
+  var standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  var dismissed = false;
+  try { dismissed = localStorage.getItem('installDismissed') === '1'; } catch (e) {}
+  if (standalone || dismissed) return;
+  var deferred = null, btn = document.getElementById('install-btn'), txt = document.getElementById('install-text');
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault(); deferred = e; bar.hidden = false;
+  });
+  window.addEventListener('appinstalled', function () { bar.hidden = true; });
+  btn.addEventListener('click', function () {
+    if (!deferred) return;
+    deferred.prompt(); deferred.userChoice.then(function () { deferred = null; bar.hidden = true; });
+  });
+  document.getElementById('install-close').addEventListener('click', function () {
+    bar.hidden = true; try { localStorage.setItem('installDismissed', '1'); } catch (e) {}
+  });
+  // iPhone (Safari) मध्ये स्वयंचलित इन्स्टॉल बटण नसते — सूचना दाखवतो
+  var ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (ios) {
+    txt.textContent = 'इन्स्टॉल करण्यासाठी Safari मध्ये Share (⬆) दाबा → "Add to Home Screen".';
+    btn.hidden = true; bar.hidden = false;
+  }
+})();
+</script>
 </body>
 </html>

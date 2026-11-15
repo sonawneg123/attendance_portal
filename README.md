@@ -25,6 +25,13 @@ Username + password. First time for a contractor / employee: the person above cr
 6-character **code** → user opens "पहिले लॉगिन (कोडने)" → sets a password (mandatory) → code is erased.
 Forgot password → "पासवर्ड रीसेट" issues a fresh code. Admin forgot password → `python reset_admin.py`.
 
+## PWA (install as an app)
+
+The portal is an installable PWA: Android/Chrome shows an "इन्स्टॉल करा" bar (or browser menu → *Install app*);
+on iPhone use Safari → Share → *Add to Home Screen*. It needs HTTPS (Render provides it).
+Only static files and a Marathi offline page are cached; logged-in pages and attendance are never cached or
+queued offline, so punch times are always accurate. After changing `static/sw.js`, bump `VERSION` in it.
+
 ## Deploy on Render (Blueprint, recommended)
 
 1. Push this folder to a GitHub repo (the folder containing `app.py` and `render.yaml` should be the repo root).
