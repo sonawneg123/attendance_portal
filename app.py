@@ -90,6 +90,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     designation TEXT,
     daily_wage REAL,
+    ot_rate REAL,
     password_hash TEXT,
     signup_code TEXT,
     code_attempts INTEGER NOT NULL DEFAULT 0,
@@ -110,6 +111,34 @@ CREATE TABLE IF NOT EXISTS pay_overrides (
     amount REAL NOT NULL,
     UNIQUE (user_id, work_date)
 );
+CREATE TABLE IF NOT EXISTS advances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    adv_date TEXT NOT NULL,
+    amount REAL NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_adv_user_date ON advances (user_id, adv_date);
+CREATE TABLE IF NOT EXISTS salary_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    month TEXT NOT NULL,
+    paid_on TEXT NOT NULL,
+    days INTEGER NOT NULL,
+    secs INTEGER NOT NULL,
+    daily_wage REAL,
+    ot_rate REAL,
+    base REAL NOT NULL,
+    ot_secs INTEGER NOT NULL,
+    ot_pay REAL NOT NULL,
+    adv REAL NOT NULL,
+    carry_in REAL NOT NULL,
+    net REAL NOT NULL,
+    carry_out REAL NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (user_id, month)
+);
 """
 
 SCHEMA_PG = """
@@ -120,6 +149,7 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     designation TEXT,
     daily_wage DOUBLE PRECISION,
+    ot_rate DOUBLE PRECISION,
     password_hash TEXT,
     signup_code TEXT,
     code_attempts INTEGER NOT NULL DEFAULT 0,
@@ -139,6 +169,34 @@ CREATE TABLE IF NOT EXISTS pay_overrides (
     work_date TEXT NOT NULL,
     amount DOUBLE PRECISION NOT NULL,
     UNIQUE (user_id, work_date)
+);
+CREATE TABLE IF NOT EXISTS advances (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    adv_date TEXT NOT NULL,
+    amount DOUBLE PRECISION NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_adv_user_date ON advances (user_id, adv_date);
+CREATE TABLE IF NOT EXISTS salary_payments (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    month TEXT NOT NULL,
+    paid_on TEXT NOT NULL,
+    days INTEGER NOT NULL,
+    secs INTEGER NOT NULL,
+    daily_wage DOUBLE PRECISION,
+    ot_rate DOUBLE PRECISION,
+    base DOUBLE PRECISION NOT NULL,
+    ot_secs INTEGER NOT NULL,
+    ot_pay DOUBLE PRECISION NOT NULL,
+    adv DOUBLE PRECISION NOT NULL,
+    carry_in DOUBLE PRECISION NOT NULL,
+    net DOUBLE PRECISION NOT NULL,
+    carry_out DOUBLE PRECISION NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE (user_id, month)
 );
 """
 
@@ -185,6 +243,11 @@ def init_db():
             for stmt in SCHEMA_PG.split(";"):
                 if stmt.strip():
                     db.execute(stmt)
+            # जुन्या डेटाबेससाठी नवीन कॉलम (फक्त नसेल तरच ALTER, म्हणजे अनावश्यक लॉक नाही)
+            has = db.execute("SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() "
+                             "AND table_name = 'users' AND column_name = 'ot_rate'").fetchone()
+            if not has:
+                db.execute("ALTER TABLE users ADD COLUMN ot_rate DOUBLE PRECISION")
             db.commit()
         finally:
             db.close()
@@ -200,6 +263,8 @@ def init_db():
     with closing(sqlite3.connect(DB_PATH)) as raw:
         raw.execute("PRAGMA journal_mode = WAL")
         raw.executescript(SCHEMA_SQLITE)
+        if "ot_rate" not in [r[1] for r in raw.execute("PRAGMA table_info(users)")]:
+            raw.execute("ALTER TABLE users ADD COLUMN ot_rate REAL")  # जुन्या डेटाबेससाठी
         raw.commit()
 
 
@@ -313,8 +378,8 @@ def f_mdur(seconds):
 def f_mrs(value):
     if value is None:
         return "—"
-    s = f"{value:,.2f}".rstrip("0").rstrip(".")
-    return dn(f"₹ {s}")
+    s = f"{abs(value):,.2f}".rstrip("0").rstrip(".")
+    return dn(f"−₹ {s}" if value < 0 else f"₹ {s}")
 
 
 @app.template_filter("mmonth")
@@ -350,6 +415,11 @@ def session_view(row, now_dt):
             "secs": 0, "open": True, "incomplete": True}
 
 
+def rupee(x):
+    """जवळच्या रुपयाला (०.५ वर चढते) — रोख देण्यासाठी पैसे नकोत."""
+    return float(int(x + 0.5))
+
+
 def day_pay(secs, wage, override=None):
     """पूर्ण दिवस (FULL_DAY_HOURS किंवा जास्त) = पूर्ण रोजंदारी.
     कमी तास: कंत्राटदाराने ठरवलेली रक्कम (override); ठरवली नसल्यास प्रमाणात (प्रो-रेटा) अंदाज."""
@@ -360,7 +430,7 @@ def day_pay(secs, wage, override=None):
         return round(override, 2)
     if not wage:
         return None
-    return round(wage * secs / full, 2)
+    return rupee(wage * secs / full)
 
 
 def fetch_overrides(db, user_id, start, end_excl):
@@ -370,7 +440,7 @@ def fetch_overrides(db, user_id, start, end_excl):
     return {r["work_date"]: r["amount"] for r in rows}
 
 
-def build_days(rows, now_dt, wage=None, overrides=None):
+def build_days(rows, now_dt, wage=None, overrides=None, ot_rate=None):
     overrides = overrides or {}
     full = FULL_DAY_HOURS * 3600
     days = {}
@@ -392,12 +462,74 @@ def build_days(rows, now_dt, wage=None, overrides=None):
         day["pay"] = day_pay(day["secs"], wage, ov)
         day["auto_pay"] = day_pay(day["secs"], wage)
         day["needs_decision"] = day["decidable"] and ov is None
+        # ओव्हरटाइम: FULL_DAY_HOURS पेक्षा जास्त तास; दर ठरवलेला असेल तरच रक्कम
+        extra = 0 if day["incomplete"] else max(0, day["secs"] - full)
+        day["ot_secs"] = extra
+        day["ot_pay"] = rupee(extra / 3600 * ot_rate) if (extra and ot_rate) else 0.0
     return sorted(days.values(), key=lambda x: x["date"], reverse=True)
 
 
 def total_pay(days):
     vals = [d["pay"] for d in days if d["pay"] is not None]
     return round(sum(vals), 2) if vals else None
+
+
+def total_ot(days):
+    return round(sum(d["ot_pay"] for d in days), 2)
+
+
+def fetch_advances(db, user_id, start, end_excl):
+    return db.execute(
+        "SELECT * FROM advances WHERE user_id = ? AND adv_date >= ? AND adv_date < ? ORDER BY adv_date, id",
+        (user_id, start.isoformat(), end_excl.isoformat())).fetchall()
+
+
+def get_payment(db, user_id, month_key):
+    return db.execute("SELECT * FROM salary_payments WHERE user_id = ? AND month = ?",
+                      (user_id, month_key)).fetchone()
+
+
+def parse_month(raw, default=None):
+    try:
+        y, m = (int(x) for x in (raw or "").split("-"))
+        return date(y, m, 1)
+    except ValueError:
+        return default
+
+
+def next_month_first(first):
+    return (first + timedelta(days=32)).replace(day=1)
+
+
+def summarize(db, emp, start, end, now_dt):
+    """कालावधीचा हिशोब: दिवस, मजुरी, ओव्हरटाइम, उचल. (मागील थकबाकी येथे नाही.)"""
+    end_excl = end + timedelta(days=1)
+    days = build_days(fetch_sessions(db, emp["id"], start, end_excl), now_dt, emp["daily_wage"],
+                      fetch_overrides(db, emp["id"], start, end_excl), emp["ot_rate"])
+    base = total_pay(days) or 0.0
+    ot = total_ot(days)
+    advs = fetch_advances(db, emp["id"], start, end_excl)
+    adv_total = round(sum(a["amount"] for a in advs), 2)
+    gross = round(base + ot, 2)
+    return {"days": days, "secs": sum(d["secs"] for d in days), "base": base, "ot": ot,
+            "ot_secs": sum(d["ot_secs"] for d in days), "gross": gross,
+            "advances": advs, "adv_total": adv_total, "balance": round(gross - adv_total, 2),
+            "pending": sum(1 for d in days if d["needs_decision"]),
+            "custom": sum(1 for d in days if d["override"] is not None),
+            "incomplete": any(d["incomplete"] for d in days),
+            "running": any(d["running"] for d in days)}
+
+
+def month_summary(db, emp, first, now_dt):
+    """एका महिन्याचा पूर्ण पगार-हिशोब: मजुरी + OT − उचल − मागील महिन्याची न फिटलेली उचल."""
+    last = next_month_first(first) - timedelta(days=1)
+    sm = summarize(db, emp, first, last, now_dt)
+    prev = get_payment(db, emp["id"], (first - timedelta(days=1)).strftime("%Y-%m"))
+    carry_in = round(prev["carry_out"], 2) if prev else 0.0
+    due = round(sm["gross"] - sm["adv_total"] - carry_in, 2)
+    sm.update(month=first, carry_in=carry_in, due=due, net=round(max(due, 0.0), 2),
+              carry_out=round(max(-due, 0.0), 2), payment=get_payment(db, emp["id"], first.strftime("%Y-%m")))
+    return sm
 
 
 def fetch_sessions(db, user_id, start, end_excl):
@@ -428,6 +560,7 @@ def get_range():
 # --------------------------------------------------------------------------
 # सुरक्षा: CSRF, लॉगिन, प्रयत्न मर्यादा
 # --------------------------------------------------------------------------
+INTEGRITY = (sqlite3.IntegrityError,) + ((psycopg.IntegrityError,) if psycopg else ())
 FAILS = {}
 
 
@@ -831,9 +964,9 @@ def employee_home():
     next_first = (first + timedelta(days=32)).replace(day=1)
     prev_first = (first - timedelta(days=1)).replace(day=1)
 
-    days = build_days(fetch_sessions(db, g.user["id"], first, next_first), now_dt, wage,
-                      fetch_overrides(db, g.user["id"], first, next_first))
-    month_secs = sum(d["secs"] for d in days)
+    summ = month_summary(db, g.user, first, now_dt)
+    days = summ["days"]
+    month_secs = summ["secs"]
 
     open_row = db.execute("SELECT * FROM attendance WHERE user_id = ? AND out_time IS NULL ORDER BY in_time DESC LIMIT 1",
                           (g.user["id"],)).fetchone()
@@ -841,8 +974,8 @@ def employee_home():
     today_rows = fetch_sessions(db, g.user["id"], t, t + timedelta(days=1))
     today_secs = sum(session_view(r, now_dt)["secs"] for r in today_rows)
     return render_template(
-        "employee_dashboard.html", days=days, month_secs=month_secs, month_pay=total_pay(days),
-        wage=wage, current=current, today_secs=today_secs, month=first,
+        "employee_dashboard.html", days=days, month_secs=month_secs, month_pay=summ["gross"],
+        s=summ, emp=g.user, wage=wage, current=current, today_secs=today_secs, month=first,
         is_current_month=(first == t.replace(day=1)),
         prev_month=prev_first.strftime("%Y-%m"), next_month=next_first.strftime("%Y-%m"))
 
@@ -881,7 +1014,7 @@ def contractor_home():
     t = today()
     emps = db.execute("SELECT * FROM users WHERE role = 'employee' AND contractor_id = ? ORDER BY name",
                       (g.user["id"],)).fetchall()
-    cards, inside, absent, pending = [], 0, 0, 0
+    cards, inside, absent, pending, out_n = [], 0, 0, 0, 0
     for e in emps:
         rows = db.execute(
             "SELECT * FROM attendance WHERE user_id = ? AND (in_time >= ? OR out_time IS NULL) ORDER BY in_time",
@@ -891,6 +1024,9 @@ def contractor_home():
         is_in = any(v["open"] and not v["incomplete"] for v in views)
         has_incomplete = any(v["incomplete"] for v in views)
         worked_today = any(v["in_time"][:10] == t.isoformat() for v in views)
+        today_views = [v for v in views if v["in_time"][:10] == t.isoformat()]
+        first_in = min((v["in_time"] for v in today_views), default=None)
+        cur = next((v for v in views if v["open"] and not v["incomplete"]), None)
         if not e["password_hash"]:
             status = "pending"
             pending += 1
@@ -899,11 +1035,16 @@ def contractor_home():
             inside += 1
         elif worked_today:
             status = "out"
+            out_n += 1
         else:
             status = "absent"
             absent += 1
-        cards.append({"e": e, "status": status, "today_secs": today_secs, "incomplete": has_incomplete})
-    return render_template("contractor_dashboard.html", cards=cards, inside=inside,
+        cards.append({"e": e, "status": status, "today_secs": today_secs, "incomplete": has_incomplete,
+                      "first_in": first_in, "cur_in": cur["in_time"] if cur else None})
+    present = inside + out_n
+    active = len(emps) - pending
+    return render_template("contractor_dashboard.html", cards=cards, inside=inside, out_n=out_n,
+                           present=present, active=active,
                            absent=absent, pending=pending, total=len(emps), today=t)
 
 
@@ -915,13 +1056,16 @@ def employee_form(emp_id=None):
     emp = own_employee_or_404(db, emp_id) if emp_id else None
     form = {"name": emp["name"] if emp else "", "username": emp["username"] if emp else "",
             "designation": (emp["designation"] or "") if emp else "",
-            "daily_wage": ("" if not emp or emp["daily_wage"] is None else f"{emp['daily_wage']:g}")}
+            "daily_wage": ("" if not emp or emp["daily_wage"] is None else f"{emp['daily_wage']:g}"),
+            "ot_rate": ("" if not emp or emp["ot_rate"] is None else f"{emp['ot_rate']:g}")}
     if request.method == "POST":
         form["name"] = request.form.get("name", "").strip()
         form["username"] = norm_username(request.form.get("username"))
         form["designation"] = request.form.get("designation", "").strip()
         form["daily_wage"] = norm(request.form.get("daily_wage"))
+        form["ot_rate"] = norm(request.form.get("ot_rate"))
         wage, wage_bad = parse_wage(form["daily_wage"])
+        ot_rate, ot_bad = parse_wage(form["ot_rate"])
         if not form["name"]:
             flash("कृपया कामगाराचे नाव लिहा.", "error")
         elif not valid_username(form["username"]):
@@ -930,18 +1074,20 @@ def employee_form(emp_id=None):
             flash("हे युजरनेम आधीच वापरात आहे. कृपया दुसरे निवडा.", "error")
         elif wage_bad:
             flash("रोजंदारी योग्य रकमेत लिहा (उदा. 650 किंवा 650.50).", "error")
+        elif ot_bad:
+            flash("ओव्हरटाइम दर योग्य रकमेत लिहा (उदा. 100) किंवा रिकामा ठेवा.", "error")
         elif emp:
-            db.execute("UPDATE users SET name = ?, username = ?, designation = ?, daily_wage = ? WHERE id = ?",
-                       (form["name"], form["username"], form["designation"] or None, wage, emp["id"]))
+            db.execute("UPDATE users SET name = ?, username = ?, designation = ?, daily_wage = ?, ot_rate = ? WHERE id = ?",
+                       (form["name"], form["username"], form["designation"] or None, wage, ot_rate, emp["id"]))
             db.commit()
             flash("कामगाराची माहिती बदलली.", "success")
             return redirect(url_for("contractor_home"))
         else:
             code = new_code(db)
             db.execute(
-                "INSERT INTO users (role, name, username, designation, daily_wage, signup_code, contractor_id, created_at) "
-                "VALUES ('employee', ?, ?, ?, ?, ?, ?, ?)",
-                (form["name"], form["username"], form["designation"] or None, wage, code, g.user["id"], ts(now())))
+                "INSERT INTO users (role, name, username, designation, daily_wage, ot_rate, signup_code, contractor_id, created_at) "
+                "VALUES ('employee', ?, ?, ?, ?, ?, ?, ?, ?)",
+                (form["name"], form["username"], form["designation"] or None, wage, ot_rate, code, g.user["id"], ts(now())))
             db.commit()
             flash(f"{form['name']} यांना जोडले गेले. पहिल्या लॉगिनचा कोड: {code} — हा कोड कामगाराला द्या.", "success")
             return redirect(url_for("contractor_home"))
@@ -980,12 +1126,11 @@ def employee_detail(emp_id):
     db = get_db()
     emp = own_employee_or_404(db, emp_id)
     start, end = get_range()
-    end_excl = end + timedelta(days=1)
-    days = build_days(fetch_sessions(db, emp["id"], start, end_excl), now(), emp["daily_wage"],
-                      fetch_overrides(db, emp["id"], start, end_excl))
-    return render_template("employee_detail.html", emp=emp, days=days, start=start, end=end,
-                           total_secs=sum(d["secs"] for d in days), total_pay=total_pay(days),
-                           pending_days=sum(1 for d in days if d["needs_decision"]))
+    summ = summarize(db, emp, start, end, now())
+    days = summ["days"]
+    return render_template("employee_detail.html", emp=emp, days=days, start=start, end=end, s=summ,
+                           total_secs=summ["secs"], total_pay=summ["gross"],
+                           pending_days=summ["pending"])
 
 
 def _parse_form_dt(name):
@@ -1060,6 +1205,9 @@ def pay_set(emp_id):
                                       emp["daily_wage"]) if x["date"] == work_date), None)
     if day is None:
         abort(404)
+    if get_payment(db, emp["id"], work_date[:7]):
+        flash("या महिन्याचा पगार दिला आहे. मजुरी बदलण्यासाठी आधी 'पगार दिला' रद्द करा.", "error")
+        return redirect(back)
     if request.form.get("action") == "clear":
         db.execute("DELETE FROM pay_overrides WHERE user_id = ? AND work_date = ?", (emp["id"], work_date))
         db.commit()
@@ -1086,6 +1234,256 @@ def pay_set(emp_id):
     return redirect(back)
 
 
+# --------------------------------------------------------------------------
+# हिशोब: उचल, पगार दिला, पगार पावती (PDF)
+# --------------------------------------------------------------------------
+FONT_REG = os.path.join(BASE_DIR, "static", "fonts", "Mukta-Regular.ttf")
+FONT_BOLD = os.path.join(BASE_DIR, "static", "fonts", "Mukta-Bold.ttf")
+
+
+def _salary_back(emp_id, month_key):
+    return redirect(url_for("salary_page", emp_id=emp_id, month=month_key))
+
+
+@app.route("/contractor/employee/<int:emp_id>/salary")
+@login_required("contractor")
+def salary_page(emp_id):
+    db = get_db()
+    emp = own_employee_or_404(db, emp_id)
+    t = today()
+    cur_first = t.replace(day=1)
+    first = parse_month(request.args.get("month"), cur_first)
+    if first > cur_first:
+        first = cur_first
+    summ = month_summary(db, emp, first, now())
+    pay = summ["payment"]
+    mismatch = bool(pay) and (abs(pay["base"] + pay["ot_pay"] - summ["gross"]) > 0.01
+                              or abs(pay["adv"] - summ["adv_total"]) > 0.01)
+    nxt = next_month_first(first)
+    return render_template(
+        "salary.html", emp=emp, s=summ, first=first, month_key=first.strftime("%Y-%m"),
+        prev_month=(first - timedelta(days=1)).strftime("%Y-%m"),
+        next_month=nxt.strftime("%Y-%m") if nxt <= cur_first else None,
+        paid=pay, mismatch=mismatch, month_ended=(nxt <= t), today=t, last=nxt - timedelta(days=1))
+
+
+@app.route("/contractor/employee/<int:emp_id>/advance", methods=["POST"])
+@login_required("contractor")
+def advance_add(emp_id):
+    db = get_db()
+    emp = own_employee_or_404(db, emp_id)
+    t = today()
+    adv_date = parse_date(request.form.get("date"), t)
+    month_key = adv_date.strftime("%Y-%m")
+    amount, bad = parse_wage(request.form.get("amount"))
+    note = request.form.get("note", "").strip()[:80]
+    if bad or amount is None or amount <= 0:
+        flash("उचलीची रक्कम योग्य लिहा (० पेक्षा जास्त, उदा. 500).", "error")
+    elif adv_date > t:
+        flash("उचलीची तारीख उद्याची किंवा पुढची असू शकत नाही.", "error")
+    elif get_payment(db, emp["id"], month_key):
+        flash("त्या महिन्याचा पगार दिला आहे. उचल जोडण्यासाठी आधी 'पगार दिला' रद्द करा.", "error")
+    else:
+        db.execute("INSERT INTO advances (user_id, adv_date, amount, note, created_at) VALUES (?, ?, ?, ?, ?)",
+                   (emp["id"], adv_date.isoformat(), amount, note or None, ts(now())))
+        db.commit()
+        flash(f"{emp['name']} यांना {f_mrs(amount)} उचल नोंदवली ({f_mdate(adv_date, False)}).", "success")
+    return _salary_back(emp["id"], month_key)
+
+
+@app.route("/contractor/employee/<int:emp_id>/advance/<int:adv_id>/delete", methods=["POST"])
+@login_required("contractor")
+def advance_delete(emp_id, adv_id):
+    db = get_db()
+    emp = own_employee_or_404(db, emp_id)
+    adv = db.execute("SELECT * FROM advances WHERE id = ? AND user_id = ?", (adv_id, emp["id"])).fetchone()
+    if adv is None:
+        abort(404)
+    month_key = adv["adv_date"][:7]
+    if get_payment(db, emp["id"], month_key):
+        flash("त्या महिन्याचा पगार दिला आहे. उचल हटवण्यासाठी आधी 'पगार दिला' रद्द करा.", "error")
+    else:
+        db.execute("DELETE FROM advances WHERE id = ?", (adv["id"],))
+        db.commit()
+        flash("उचलीची नोंद हटवली.", "success")
+    return _salary_back(emp["id"], month_key)
+
+
+@app.route("/contractor/employee/<int:emp_id>/salary/pay", methods=["POST"])
+@login_required("contractor")
+def salary_pay(emp_id):
+    """'पगार दिला': त्या क्षणाचा हिशोब जतन होतो (पावतीसाठी) व उचल/मजुरीत पुढे बदल थांबतो."""
+    db = get_db()
+    emp = own_employee_or_404(db, emp_id)
+    t = today()
+    first = parse_month(request.form.get("month"))
+    if first is None or first > t.replace(day=1):
+        abort(400)
+    key = first.strftime("%Y-%m")
+    summ = month_summary(db, emp, first, now())
+    if summ["payment"]:
+        flash("या महिन्याचा पगार आधीच 'दिला' म्हणून नोंदवला आहे.", "error")
+    elif summ["incomplete"]:
+        flash("काही दिवसांची बाहेरची वेळ नोंदलेली नाही. आधी ती दुरुस्त करा, मग पगार नोंदवा.", "error")
+    elif summ["running"]:
+        flash("कामगार सध्या कामावर (आत) आहे. तो बाहेर पडल्यावर पगार नोंदवा, म्हणजे आजचे तास अचूक धरले जातील.", "error")
+    elif not summ["days"] and not summ["adv_total"] and not summ["carry_in"]:
+        flash("या महिन्यात हजेरी किंवा उचल नाही, म्हणून पगार नोंदवता येत नाही.", "error")
+    else:
+        paid_on = min(parse_date(request.form.get("paid_on"), t), t)
+        try:
+            db.execute(
+                "INSERT INTO salary_payments (user_id, month, paid_on, days, secs, daily_wage, ot_rate, base, ot_secs, "
+                "ot_pay, adv, carry_in, net, carry_out, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (emp["id"], key, paid_on.isoformat(), len(summ["days"]), summ["secs"], emp["daily_wage"], emp["ot_rate"],
+                 summ["base"], summ["ot_secs"], summ["ot"], summ["adv_total"], summ["carry_in"], summ["net"],
+                 summ["carry_out"], ts(now())))
+            db.commit()
+            flash(f"{emp['name']} यांचा {f_mmonth(first)} चा पगार {f_mrs(summ['net'])} 'दिला' म्हणून नोंदवला.", "success")
+        except INTEGRITY:
+            flash("या महिन्याचा पगार आधीच नोंदवला आहे.", "error")
+    return _salary_back(emp["id"], key)
+
+
+@app.route("/contractor/employee/<int:emp_id>/salary/unpay", methods=["POST"])
+@login_required("contractor")
+def salary_unpay(emp_id):
+    db = get_db()
+    emp = own_employee_or_404(db, emp_id)
+    first = parse_month(request.form.get("month"))
+    if first is None:
+        abort(400)
+    key = first.strftime("%Y-%m")
+    if get_payment(db, emp["id"], next_month_first(first).strftime("%Y-%m")):
+        flash("पुढील महिन्याचा पगार दिला आहे. आधी तो रद्द करा.", "error")
+    else:
+        db.execute("DELETE FROM salary_payments WHERE user_id = ? AND month = ?", (emp["id"], key))
+        db.commit()
+        flash("'पगार दिला' ची नोंद रद्द केली. आता उचल/मजुरी पुन्हा बदलता येईल.", "success")
+    return _salary_back(emp["id"], key)
+
+
+def build_slip_pdf(emp, contractor_name, pay, advs, first):
+    from fpdf import FPDF  # फक्त पावती बनवताना लागते
+
+    pdf = FPDF(format=(148, 210), unit="mm")  # A5
+    pdf.set_auto_page_break(True, 12)
+    pdf.set_margins(10, 10, 10)
+    pdf.set_text_shaping(True)  # देवनागरी जोडाक्षरे/मात्रा नीट येण्यासाठी
+    pdf.add_font("Mukta", "", FONT_REG)
+    pdf.add_font("Mukta", "B", FONT_BOLD)
+    pdf.add_page()
+    W = pdf.w - 20
+    rs = f_mrs
+
+    pdf.set_fill_color(20, 24, 28)
+    pdf.rect(0, 0, pdf.w, 26, "F")
+    pdf.set_fill_color(255, 196, 0)
+    pdf.rect(0, 26, pdf.w, 2.5, "F")
+    pdf.set_xy(10, 4.5)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Mukta", "B", 17)
+    pdf.cell(W, 9, SHOP_NAME)
+    pdf.set_xy(10, 14)
+    pdf.set_font("Mukta", "", 12.5)
+    pdf.set_text_color(255, 196, 0)
+    pdf.cell(W, 7, f"पगार पावती — {f_mmonth(first)}")
+    pdf.set_text_color(20, 24, 28)
+    pdf.set_y(33)
+
+    def info(label, value):
+        pdf.set_font("Mukta", "", 10.5)
+        pdf.set_text_color(93, 106, 117)
+        pdf.cell(32, 6, label)
+        pdf.set_font("Mukta", "B", 11.5)
+        pdf.set_text_color(20, 24, 28)
+        pdf.cell(W - 32, 6, value, new_x="LMARGIN", new_y="NEXT")
+
+    info("कामगार", emp["name"])
+    if emp["designation"]:
+        info("पदनाम", emp["designation"])
+    info("कंत्राटदार", contractor_name)
+    if pay["daily_wage"]:
+        info("रोजंदारी", f"{rs(pay['daily_wage'])} / दिवस")
+    if pay["ot_rate"]:
+        info("ओव्हरटाइम दर", f"{rs(pay['ot_rate'])} / तास")
+    pdf.ln(2)
+    pdf.set_draw_color(200, 205, 210)
+
+    def row(label, value="", bold=False, fill=None, size=11.5, color=None):
+        pdf.set_font("Mukta", "B" if bold else "", size)
+        pdf.set_text_color(*(color or (20, 24, 28)))
+        if fill:
+            pdf.set_fill_color(*fill)
+        pdf.cell(W * 0.62, 7.6, label, border="B", fill=bool(fill))
+        pdf.cell(W * 0.38, 7.6, value, border="B", align="R", new_x="LMARGIN", new_y="NEXT", fill=bool(fill))
+
+    row("हजेरीचे दिवस", dn(str(pay["days"])))
+    row("एकूण काम", f_mdur(pay["secs"]))
+    row("मजुरी (रोजंदारीनुसार)", rs(pay["base"]))
+    if pay["ot_secs"]:
+        label = f"ओव्हरटाइम ({f_mdur(pay['ot_secs'])})"
+        row(label if pay["ot_rate"] else label + " — दर नाही", rs(pay["ot_pay"]))
+    gross = round(pay["base"] + pay["ot_pay"], 2)
+    row("एकूण मजुरी", rs(gross), bold=True, fill=(244, 246, 247))
+    if advs:
+        row("वजा: उचल", "", bold=True)
+        for a in advs:
+            txt = f_mdate(a["adv_date"], False) + (f" · {a['note'][:28]}" if a["note"] else "")
+            row("    " + txt, "− " + rs(a["amount"]).replace("₹ ", "₹"), size=10.5)
+    if pay["carry_in"]:
+        row("वजा: मागील महिन्याची उचल थकबाकी", "− " + rs(pay["carry_in"]).replace("₹ ", "₹"))
+    pdf.ln(1.5)
+    row("देय रक्कम (दिली)", rs(pay["net"]), bold=True, fill=(255, 196, 0), size=14)
+    pdf.set_font("Mukta", "", 10.5)
+    pdf.set_text_color(93, 106, 117)
+    pdf.cell(W, 6.5, f"पगार दिल्याची तारीख: {f_mdate(pay['paid_on'], False)}", new_x="LMARGIN", new_y="NEXT")
+    if pay["carry_out"]:
+        pdf.set_text_color(138, 90, 0)
+        pdf.multi_cell(W, 5.5, f"न फिटलेली उचल {rs(pay['carry_out'])} पुढील महिन्याच्या पगारातून वजा होईल.",
+                       new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(16)
+    pdf.set_draw_color(20, 24, 28)
+    y = pdf.get_y()
+    pdf.line(10, y, 10 + W * 0.42, y)
+    pdf.line(10 + W * 0.58, y, 10 + W, y)
+    pdf.set_font("Mukta", "", 10)
+    pdf.set_text_color(93, 106, 117)
+    pdf.cell(W * 0.58, 6, "कामगाराची सही")
+    pdf.cell(W * 0.42, 6, "कंत्राटदाराची सही", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+    pdf.set_font("Mukta", "", 8.5)
+    pdf.cell(W, 5, f"ही पावती {SHOP_NAME} द्वारे तयार केली आहे.", align="C")
+    return bytes(pdf.output())
+
+
+@app.route("/slip/<int:emp_id>/<month>.pdf")
+@login_required()
+def slip(emp_id, month):
+    """पगार पावती: कंत्राटदार (स्वतःच्या कामगाराची) किंवा कामगार (स्वतःची) — फक्त पगार 'दिला' नंतर."""
+    db = get_db()
+    if g.user["role"] == "contractor":
+        emp = own_employee_or_404(db, emp_id)
+    elif g.user["role"] == "employee" and g.user["id"] == emp_id:
+        emp = g.user
+    else:
+        abort(404)
+    first = parse_month(month)
+    if first is None:
+        abort(404)
+    pay = get_payment(db, emp["id"], first.strftime("%Y-%m"))
+    if pay is None:
+        abort(404)
+    advs = fetch_advances(db, emp["id"], first, next_month_first(first))
+    c = db.execute("SELECT name FROM users WHERE id = ?", (emp["contractor_id"],)).fetchone()
+    data = build_slip_pdf(emp, c["name"] if c else "", pay, advs, first)
+    resp = Response(data, mimetype="application/pdf")
+    resp.headers["Content-Disposition"] = f'inline; filename="salary_{emp["username"]}_{first.strftime("%Y-%m")}.pdf"'
+    resp.headers["Cache-Control"] = "private, no-store"
+    return resp
+
+
 @app.route("/contractor/report")
 @login_required("contractor")
 def report():
@@ -1094,35 +1492,39 @@ def report():
     now_dt = now()
     emps = db.execute("SELECT * FROM users WHERE role = 'employee' AND contractor_id = ? ORDER BY name",
                       (g.user["id"],)).fetchall()
-    rows, grand_secs, grand_pay = [], 0, 0.0
+    single_month = start.year == end.year and start.month == end.month
+    rows = []
+    tot = {"secs": 0, "base": 0.0, "ot": 0.0, "adv": 0.0, "balance": 0.0}
     for e in emps:
-        end_excl = end + timedelta(days=1)
-        days = build_days(fetch_sessions(db, e["id"], start, end_excl), now_dt, e["daily_wage"],
-                          fetch_overrides(db, e["id"], start, end_excl))
-        secs = sum(d["secs"] for d in days)
-        pay = total_pay(days)
-        grand_secs += secs
-        grand_pay += pay or 0
-        rows.append({"e": e, "days": len(days), "secs": secs, "pay": pay,
-                     "incomplete": any(d["incomplete"] for d in days),
-                     "pending": sum(1 for d in days if d["needs_decision"]),
-                     "custom": sum(1 for d in days if d["override"] is not None)})
-    grand_pay = round(grand_pay, 2)
+        sm = summarize(db, e, start, end, now_dt)
+        pay = get_payment(db, e["id"], start.strftime("%Y-%m")) if single_month else None
+        tot["secs"] += sm["secs"]; tot["base"] += sm["base"]; tot["ot"] += sm["ot"]
+        tot["adv"] += sm["adv_total"]; tot["balance"] += sm["balance"]
+        rows.append({"e": e, "days": len(sm["days"]), "secs": sm["secs"], "pay": sm["base"], "ot": sm["ot"],
+                     "ot_secs": sm["ot_secs"], "adv": sm["adv_total"], "balance": sm["balance"],
+                     "incomplete": sm["incomplete"], "pending": sm["pending"], "custom": sm["custom"],
+                     "paid": pay})
+    tot = {k: (round(v, 2) if k != "secs" else v) for k, v in tot.items()}
+    grand_secs, grand_pay = tot["secs"], tot["base"]
     if request.args.get("csv") == "1":
         buf = io.StringIO()
         w = csv.writer(buf)
         w.writerow(["नाव", "युजरनेम", "पदनाम", "हजेरीचे दिवस", "एकूण वेळ", "एकूण तास (दशांश)",
-                    "रोजंदारी (₹)", "एकूण मजुरी (₹)", "कमी तासांचे दिवस (मजुरी ठरवली)", "मजुरी ठरवायची बाकी"])
+                    "रोजंदारी (₹)", "मजुरी (₹)", "ओव्हरटाइम तास", "ओव्हरटाइम (₹)", "उचल (₹)",
+                    "देय = मजुरी + OT − उचल (₹)", "कमी तासांचे दिवस (मजुरी ठरवली)", "मजुरी ठरवायची बाकी",
+                    "पगार दिला (एका महिन्याचा अहवाल असल्यास)"])
         for r in rows:
             w.writerow([r["e"]["name"], r["e"]["username"], r["e"]["designation"] or "",
                         r["days"], f_mdur(r["secs"]), round(r["secs"] / 3600, 2),
                         "" if r["e"]["daily_wage"] is None else r["e"]["daily_wage"],
-                        "" if r["pay"] is None else r["pay"], r["custom"], r["pending"]])
+                        r["pay"], round(r["ot_secs"] / 3600, 2), r["ot"], r["adv"], r["balance"],
+                        r["custom"], r["pending"],
+                        ("होय" if r["paid"] else "नाही") if single_month else ""])
         data = "﻿" + buf.getvalue()  # Excel मध्ये मराठी नीट दिसण्यासाठी BOM
         return Response(data, mimetype="text/csv; charset=utf-8", headers={
             "Content-Disposition": f"attachment; filename=hajeri_{start.isoformat()}_{end.isoformat()}.csv"})
-    return render_template("report.html", rows=rows, start=start, end=end,
-                           grand_secs=grand_secs, grand_pay=grand_pay)
+    return render_template("report.html", rows=rows, start=start, end=end, tot=tot,
+                           single_month=single_month, grand_secs=grand_secs, grand_pay=grand_pay)
 
 
 if __name__ == "__main__":

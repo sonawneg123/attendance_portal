@@ -37,9 +37,30 @@
   <div class="stat"><span class="stat-label">रोजंदारी (प्रति दिवस)</span><span class="stat-value">{{ wage|mrs }}</span></div>
   {% endif %}
   {% if wage or month_pay is not none %}
-  <div class="stat"><span class="stat-label">या महिन्याची मजुरी</span><span class="stat-value">{{ month_pay|mrs }}</span></div>
+  <div class="stat"><span class="stat-label">या महिन्याची एकूण मजुरी (OT सह)</span><span class="stat-value">{{ month_pay|mrs }}</span></div>
   {% endif %}
 </div>
+
+{% set manage = false %}
+{% include "_settle.html" %}
+{% if s.payment %}
+<div class="card paid-card">
+  <p class="status-line">✔ <strong>पगार दिला</strong> — {{ s.payment.paid_on|mdate(false) }} · {{ s.payment.net|mrs }}</p>
+  <div class="actions">
+    {% set slip_url = url_for('slip', emp_id=emp.id, month=month.strftime('%Y-%m')) %}
+    {% set slip_title = 'पगार पावती - ' ~ emp.name %}
+    {% include "_slip_buttons.html" %}
+  </div>
+</div>
+{% endif %}
+{% if s.advances %}
+<div class="card">
+  <h2 class="settle-title">या महिन्यातील उचल</h2>
+  <ul class="adv-list">
+    {% for a in s.advances %}<li><span>{{ a.adv_date|mdate(false) }}{% if a.note %} <span class="muted small">· {{ a.note }}</span>{% endif %}</span><strong>{{ a.amount|mrs }}</strong></li>{% endfor %}
+  </ul>
+</div>
+{% endif %}
 
 <div class="month-nav">
   <a class="btn small" href="{{ url_for('employee_home', month=prev_month) }}">‹ मागील महिना</a>

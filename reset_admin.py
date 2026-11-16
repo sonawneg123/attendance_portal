@@ -13,7 +13,7 @@ from app import open_db  # app इम्पोर्ट केल्यावर
 db = open_db()
 admin = db.execute("SELECT id, username FROM users WHERE role = 'admin'").fetchone()
 if admin is None:
-    raise SystemExit("Admin खाते अजून तयार झालेले नाही. आधी अॅप चालवून /setup उघडा.")
+    raise SystemExit("Admin खाते अजून तयार झालेले नाही. आधी ॲप चालवून /setup उघडा.")
 print(f"Admin युजरनेम: {admin['username']}")
 pw = getpass.getpass("नवीन पासवर्ड (किमान 4 अक्षरे): ")
 if len(pw) < 4:

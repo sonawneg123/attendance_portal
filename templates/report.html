@@ -20,33 +20,33 @@
 <div class="card">
   <table class="tbl">
     <thead>
-      <tr><th>नाव</th><th>पदनाम</th><th>दिवस</th><th>एकूण काम</th><th>रोजंदारी</th><th>मजुरी</th><th>कमी तासांचे दिवस</th></tr>
+      <tr><th>नाव</th><th>दिवस</th><th>एकूण काम</th><th>मजुरी</th><th>OT</th><th>उचल</th><th>देय</th>{% if single_month %}<th>पगार</th>{% endif %}</tr>
     </thead>
     <tbody>
     {% for r in rows %}
       <tr>
         <td><a href="{{ url_for('employee_detail', emp_id=r.e.id, **{'from': start.isoformat(), 'to': end.isoformat()}) }}">{{ r.e.name }}</a>
-          {% if r.incomplete %}<span class="badge warn">अपूर्ण नोंद</span>{% endif %}
+          {% if r.incomplete %}<br><span class="badge warn">अपूर्ण नोंद</span>{% endif %}
+          {% if r.pending %}<br><a class="badge warn" href="{{ url_for('employee_detail', emp_id=r.e.id, **{'from': start.isoformat(), 'to': end.isoformat()}) }}">ठरवायचे बाकी: {{ r.pending|digits }}</a>{% endif %}
         </td>
-        <td>{{ r.e.designation or '—' }}</td>
         <td>{{ r.days|digits }}</td>
         <td>{{ r.secs|mdur }}</td>
-        <td>{{ r.e.daily_wage|mrs }}</td>
         <td>{{ r.pay|mrs }}</td>
-        <td>
-          {% if r.pending %}<a class="badge warn" href="{{ url_for('employee_detail', emp_id=r.e.id, **{'from': start.isoformat(), 'to': end.isoformat()}) }}">ठरवायचे बाकी: {{ r.pending|digits }}</a>{% endif %}
-          {% if r.custom %}<span class="badge custom">ठरवलेले: {{ r.custom|digits }}</span>{% endif %}
-          {% if not r.pending and not r.custom %}—{% endif %}
-        </td>
+        <td>{% if r.ot_secs %}{{ r.ot|mrs }}<br><span class="muted small">{{ r.ot_secs|mdur }}</span>{% else %}—{% endif %}</td>
+        <td>{% if r.adv %}− {{ r.adv|mrs }}{% else %}—{% endif %}</td>
+        <td><strong>{{ r.balance|mrs }}</strong></td>
+        {% if single_month %}<td>
+          {% if r.paid %}<span class="badge in">दिला ✔</span>{% elif not r.days and not r.adv %}—{% else %}<a class="badge warn" href="{{ url_for('salary_page', emp_id=r.e.id, month=start.strftime('%Y-%m')) }}">बाकी</a>{% endif %}
+        </td>{% endif %}
       </tr>
     {% endfor %}
     </tbody>
     <tfoot>
-      <tr class="day-total"><td colspan="3">सर्व कामगारांचे एकूण</td><td>{{ grand_secs|mdur }}</td><td></td><td>{{ grand_pay|mrs }}</td><td></td></tr>
+      <tr class="day-total"><td colspan="2">सर्व कामगारांचे एकूण</td><td>{{ tot.secs|mdur }}</td><td>{{ tot.base|mrs }}</td><td>{{ tot.ot|mrs }}</td><td>− {{ tot.adv|mrs }}</td><td>{{ tot.balance|mrs }}</td>{% if single_month %}<td></td>{% endif %}</tr>
     </tfoot>
   </table>
 </div>
-<p class="muted small">{{ full_day_hours }} तास किंवा जास्त = पूर्ण रोजंदारी. कमी तासांच्या दिवसाची मजुरी कंत्राटदाराने ठरवलेली असल्यास तीच धरली जाते; ठरवलेली नसल्यास प्रमाणातील अंदाज धरला जातो.</p>
+<p class="muted small">देय = मजुरी + OT − उचल. {{ full_day_hours }} तासांपेक्षा कमी दिवसाची मजुरी कंत्राटदाराने ठरवलेली असल्यास तीच धरली जाते, नाहीतर प्रमाणातील अंदाज. एका महिन्याचा अहवाल असल्यास 'पगार' स्तंभात दिला/बाकी दिसते; मागील महिन्याची थकीत उचल पगार-हिशोब पानावर (प्रत्येक कामगाराचे 'हिशोब / उचल') दिसते.</p>
 {% else %}
 <div class="card center muted">अजून कामगार जोडलेले नाहीत.</div>
 {% endif %}

@@ -1,23 +1,34 @@
 # हजेरी पोर्टल (Attendance Portal) — Fabrication Shop
 
-Marathi-only attendance + daily-wage web app. Flask + PostgreSQL (Render) / SQLite (local). No build step.
+Marathi-only attendance + daily-wage web app. Flask + PostgreSQL (Render/Supabase) / SQLite (local). No build step.
 
 ## Roles
 
 | Role | What they can do |
 |---|---|
 | **Admin** (exactly one) | Add, edit, delete contractors. Reset a contractor's password (issues a new code). **No attendance.** |
-| **Contractor** | Add, edit, delete employees. Set each employee's daily wage. View attendance, correct entries, **decide the pay for days worked less than 8 hours**, reports + CSV. **No attendance of their own.** |
-| **Employee** | Punch in / out, see hours today / this month and pay. |
+| **Contractor** | Add, edit, delete employees. Set daily wage and OT rate. View attendance, correct entries, **decide the pay for days worked less than 8 hours**, record advances, mark salary paid, receipts, reports + CSV. Today's attendance panel. **No attendance of their own.** |
+| **Employee** | Punch in / out, see hours, pay, advances and amount due; download own salary receipts. |
 
 ## Pay rules
 
 * `FULL_DAY_HOURS` (default 8) or more worked in a day → full daily wage.
-* Less than that → the **contractor decides** the amount for that day (any amount from ₹0 up to the full daily wage)
-  on the employee's attendance page ("ठरवा"). "आपोआप" removes the decision.
-* Until the contractor decides, a pro-rata estimate (wage × hours ÷ 8) is shown and the day is flagged
-  "ठरवायची बाकी". The report shows how many days are still pending per employee.
-* A day can only be decided once it is finished (nobody punched in) and every punch-out time is recorded.
+* Less than that → the **contractor decides** the amount for that day (₹0 up to the full daily wage) on the
+  employee's attendance page ("ठरवा"). Until decided, a pro-rata estimate (rounded to the nearest rupee) is used and
+  the day is flagged "ठरवायची बाकी".
+* **Overtime (OT):** set an *OT rate per hour* on the employee (edit page). Hours beyond `FULL_DAY_HOURS` in a day
+  are paid at that rate (rounded to the nearest rupee). No rate set → no OT pay, and a warning is shown.
+* **Advance (उचल):** the contractor records advances on the employee's "हिशोब / उचल" page.
+* **Amount due (देय)** = wages + OT − advances in the month − unrecovered advance carried from the previous month.
+  If advances exceed the wages, the shortfall is carried forward and deducted from next month's salary.
+* **"पगार दिला":** saves a snapshot of the month's accounts (used for the receipt). It is blocked while a past punch
+  has no out-time, or while the employee is currently punched in. After marking paid, that month's advances are
+  locked (use "रद्द करा" to change); if attendance is edited later, a warning shows the snapshot is outdated.
+  A month cannot be un-paid while the next month is marked paid.
+* **Salary receipt (PDF):** Marathi A5 receipt (shaped with fpdf2 + uharfbuzz, Mukta font bundled in `static/fonts`),
+  downloadable by the contractor and by the employee for their own paid months. "WhatsApp / शेअर" opens the phone's
+  share sheet with the PDF attached (falls back to a download on computers).
+* **Today panel** on the contractor's home page: how many are present, currently inside, out, absent, and who.
 
 ## Login model
 
@@ -81,3 +92,5 @@ To test against Postgres locally set `DATABASE_URL=postgresql://user:pass@host/d
 * Login/code attempt limits are kept in memory per worker (fine for one shop).
 * Security basics: password hashing, CSRF tokens on every POST, HttpOnly/SameSite cookies, ownership checks.
 * A previous mobile-number version of the SQLite DB is renamed to `attendance.db.old` automatically.
+
+* Upgrading: tables/columns for OT, advances and salary payments are created automatically at start-up; existing data is kept.

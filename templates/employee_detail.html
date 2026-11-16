@@ -8,7 +8,10 @@
     <p class="muted">रोजंदारी: <strong>{% if emp.daily_wage is none %}ठरवलेली नाही{% else %}{{ emp.daily_wage|mrs }} / दिवस{% endif %}</strong>
       · <a href="{{ url_for('employee_form', emp_id=emp.id) }}">बदला</a></p>
   </div>
-  <a class="btn primary" href="{{ url_for('entry_form', emp_id=emp.id) }}">+ नोंद जोडा</a>
+  <div class="head-actions">
+    <a class="btn primary" href="{{ url_for('entry_form', emp_id=emp.id) }}">+ नोंद जोडा</a>
+    <a class="btn" href="{{ url_for('salary_page', emp_id=emp.id) }}">हिशोब / उचल / पगार</a>
+  </div>
 </div>
 
 {% if pending_days %}
@@ -29,7 +32,9 @@
   <div class="stat"><span class="stat-label">कालावधी</span><span class="stat-value small">{{ start|mdate(false) }} ते {{ end|mdate(false) }}</span></div>
   <div class="stat"><span class="stat-label">हजेरीचे दिवस</span><span class="stat-value">{{ days|length|digits }}</span></div>
   <div class="stat"><span class="stat-label">एकूण काम</span><span class="stat-value">{{ total_secs|mdur }}</span></div>
-  <div class="stat"><span class="stat-label">एकूण मजुरी</span><span class="stat-value">{{ total_pay|mrs }}</span></div>
+  {% if s.ot_secs %}<div class="stat"><span class="stat-label">ओव्हरटाइम</span><span class="stat-value">{{ s.ot_secs|mdur }}</span></div>{% endif %}
+  <div class="stat"><span class="stat-label">एकूण मजुरी{% if s.ot %} (OT सह){% endif %}</span><span class="stat-value">{{ total_pay|mrs }}</span></div>
+  {% if s.adv_total %}<div class="stat"><span class="stat-label">उचल</span><span class="stat-value">{{ s.adv_total|mrs }}</span></div>{% endif %}
 </div>
 
 {% if days %}

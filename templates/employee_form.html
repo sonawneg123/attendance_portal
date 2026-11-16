@@ -20,6 +20,10 @@
     <label>रोजंदारी (₹ प्रति दिवस)
       <input name="daily_wage" type="number" min="0" max="1000000" step="0.01" inputmode="decimal" placeholder="उदा. 650" value="{{ form.daily_wage }}">
     </label>
+    <label>ओव्हरटाइम दर (₹ प्रति जास्तीचा तास) — ऐच्छिक
+      <input name="ot_rate" type="number" min="0" max="1000000" step="0.01" inputmode="decimal" placeholder="उदा. 100" value="{{ form.ot_rate }}">
+    </label>
+    <p class="muted small">{{ full_day_hours }} तासांपेक्षा जास्त केलेल्या कामाला हा दर लागतो. रिकामा ठेवल्यास ओव्हरटाइमचे पैसे धरले जात नाहीत.</p>
     <p class="muted small">{{ full_day_hours }} तास किंवा जास्त काम केल्यास पूर्ण रोजंदारी मिळते. त्यापेक्षा कमी तास झालेल्या दिवसाची मजुरी तुम्ही हजेरी पानावर स्वतः ठरवता. रोजंदारी बदलल्यास अहवालातील सर्व दिवसांसाठी नवीन दर वापरला जातो.</p>
     <button class="btn primary block">{{ 'जतन करा' if emp else 'कामगार जोडा व कोड तयार करा' }}</button>
     <a class="btn block" href="{{ url_for('contractor_home') }}">मागे जा</a>

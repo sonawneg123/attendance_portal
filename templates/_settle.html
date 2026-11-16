@@ -1,0 +1,19 @@
+{# महिन्याचा हिशोब. आवश्यक: s (month_summary), emp, manage (कंत्राटदार=true) #}
+<div class="card settle">
+  <h2 class="settle-title">{{ s.month|mmonth }} चा हिशोब</h2>
+  <div class="srow"><span>मजुरी <span class="muted small">({{ s.days|length|digits }} दिवस · {{ s.secs|mdur }})</span></span><strong>{{ s.base|mrs }}</strong></div>
+  {% if s.ot_secs %}
+  <div class="srow"><span>ओव्हरटाइम <span class="muted small">({{ s.ot_secs|mdur }}{% if emp.ot_rate %} × {{ emp.ot_rate|mrs }}/तास{% endif %})</span>
+    {% if not emp.ot_rate %}<br><span class="badge warn">OT दर ठरवलेला नाही{% if manage %} — कामगार संपादनात दर लिहा{% endif %}</span>{% endif %}</span>
+    <strong>{{ s.ot|mrs }}</strong></div>
+  {% endif %}
+  <div class="srow total"><span>एकूण मजुरी</span><strong>{{ s.gross|mrs }}</strong></div>
+  <div class="srow minus"><span>वजा: उचल <span class="muted small">({{ s.advances|length|digits }} नोंदी)</span></span><strong>− {{ s.adv_total|mrs }}</strong></div>
+  {% if s.carry_in %}
+  <div class="srow minus"><span>वजा: मागील महिन्याची न फिटलेली उचल</span><strong>− {{ s.carry_in|mrs }}</strong></div>
+  {% endif %}
+  <div class="srow due"><span>देय रक्कम</span><strong>{{ s.net|mrs }}</strong></div>
+  {% if s.carry_out %}
+  <p class="muted small">उचल पगारापेक्षा जास्त आहे. न फिटलेली {{ s.carry_out|mrs }} रक्कम पुढील महिन्याच्या पगारातून वजा होईल.</p>
+  {% endif %}
+</div>

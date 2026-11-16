@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}हिशोब · {{ emp.name }} · {{ shop_name }}{% endblock %}
+{% block content %}
+{% set manage = true %}
+<div class="head-row">
+  <div>
+    <h1>{{ emp.name }}</h1>
+    <p class="muted">हिशोब · उचल · पगार{% if emp.designation %} · {{ emp.designation }}{% endif %}</p>
+  </div>
+  <a class="btn" href="{{ url_for('employee_detail', emp_id=emp.id) }}">हजेरी पहा</a>
+</div>
+
+<div class="month-nav card">
+  <a class="btn small" href="{{ url_for('salary_page', emp_id=emp.id, month=prev_month) }}">‹ मागील महिना</a>
+  <strong>{{ first|mmonth }}</strong>
+  {% if next_month %}<a class="btn small" href="{{ url_for('salary_page', emp_id=emp.id, month=next_month) }}">पुढील महिना ›</a>
+  {% else %}<span class="btn small disabled">पुढील महिना ›</span>{% endif %}
+</div>
+
+{% if s.incomplete %}
+<div class="alert-short">⚠ काही दिवसांची बाहेरची वेळ नोंदलेली नाही — <a href="{{ url_for('employee_detail', emp_id=emp.id, **{'from': first.isoformat(), 'to': last.isoformat()}) }}">हजेरी दुरुस्त करा</a>. ती झाल्याशिवाय पगार 'दिला' नोंदवता येणार नाही.</div>
+{% endif %}
+{% if s.running %}
+<div class="alert-short">⚠ कामगार सध्या कामावर (आत) आहे. तो बाहेर पडल्यावरच पगार 'दिला' नोंदवता येईल.</div>
+{% endif %}
+{% if s.pending %}
+<div class="alert-short">⚠ {{ s.pending|digits }} कमी तासांच्या दिवसांची मजुरी ठरवायची बाकी आहे (तोपर्यंत प्रमाणातील अंदाज धरला आहे).</div>
+{% endif %}
+{% if mismatch %}
+<div class="alert-short">⚠ पगार 'दिला' नोंदवल्यानंतर या महिन्याची हजेरी/उचल बदलली आहे. पावतीवर दिलेल्या वेळेची रक्कम आहे; नवीन हिशोब वेगळा येत असल्यास 'पगार दिला' रद्द करून पुन्हा नोंदवा.</div>
+{% endif %}
+
+{% include "_settle.html" %}
+
+{% if paid %}
+<div class="card paid-card">
+  <p class="status-line">✔ <strong>पगार दिला</strong> — {{ paid.paid_on|mdate(false) }}</p>
+  <p>दिलेली रक्कम: <strong>{{ paid.net|mrs }}</strong></p>
+  <div class="actions">
+    {% set slip_url = url_for('slip', emp_id=emp.id, month=month_key) %}
+    {% set slip_title = 'पगार पावती - ' ~ emp.name %}
+    {% include "_slip_buttons.html" %}
+    <form method="post" action="{{ url_for('salary_unpay', emp_id=emp.id) }}" class="inline"
+          onsubmit="return confirm('\'पगार दिला\' ची नोंद रद्द करायची का? पावती निघून जाईल.');">
+      {{ csrf_input() }}<input type="hidden" name="month" value="{{ month_key }}">
+      <button class="btn small danger-outline">'पगार दिला' रद्द करा</button>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <h2 class="settle-title">पगार दिला का?</h2>
+  <form method="post" action="{{ url_for('salary_pay', emp_id=emp.id) }}" class="filter"
+        onsubmit="return confirm('{{ s.net|mrs }} पगार दिला म्हणून नोंदवायचा का?{% if not month_ended %} (महिना अजून संपलेला नाही){% endif %}{% if s.pending %} {{ s.pending }} कमी तासांच्या दिवसांची मजुरी ठरवलेली नाही; प्रमाणातील अंदाज धरला आहे.{% endif %}');">
+    {{ csrf_input() }}<input type="hidden" name="month" value="{{ month_key }}">
+    <label>पगार दिल्याची तारीख
+      <input type="date" name="paid_on" value="{{ today.isoformat() }}" max="{{ today.isoformat() }}" required>
+    </label>
+    <button class="btn primary" {% if s.incomplete or s.running %}disabled{% endif %}>पगार दिला — नोंदवा</button>
+  </form>
+  <p class="muted small">नोंदवल्यावर या महिन्याचा हिशोब जतन होतो आणि पावती (PDF) तयार होते. त्यानंतर या महिन्याची उचल बदलता येत नाही; हजेरी बदलल्यास इशारा दिसतो. बदल करायचा असल्यास 'रद्द करा'.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="settle-title">उचल (ॲडव्हान्स)</h2>
+  {% if s.advances %}
+  <ul class="adv-list">
+    {% for a in s.advances %}
+    <li>
+      <span>{{ a.adv_date|mdate(false) }}{% if a.note %} <span class="muted small">· {{ a.note }}</span>{% endif %}</span>
+      <strong>{{ a.amount|mrs }}</strong>
+      {% if not paid %}
+      <form method="post" action="{{ url_for('advance_delete', emp_id=emp.id, adv_id=a.id) }}" class="inline"
+            onsubmit="return confirm('ही उचल नोंद हटवायची का?');">
+        {{ csrf_input() }}<button class="btn small danger-outline">हटवा</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">या महिन्यात उचल दिलेली नाही.</p>
+  {% endif %}
+
+  {% if not paid %}
+  <form method="post" action="{{ url_for('advance_add', emp_id=emp.id) }}" class="adv-form">
+    {{ csrf_input() }}
+    <label>तारीख
+      {% set d_default = today if today.strftime('%Y-%m') == month_key else (s.month.replace(day=28)) %}
+      <input type="date" name="date" value="{{ d_default.isoformat() }}" max="{{ today.isoformat() }}" required>
+    </label>
+    <label>रक्कम (₹)
+      <input type="number" name="amount" min="1" max="1000000" step="0.01" inputmode="decimal" required placeholder="उदा. 500">
+    </label>
+    <label>टीप (ऐच्छिक)
+      <input name="note" maxlength="80" placeholder="उदा. औषध, घरखर्च">
+    </label>
+    <button class="btn primary">+ उचल नोंदवा</button>
+  </form>
+  {% else %}
+  <p class="muted small">पगार 'दिला' नोंदवलेला असल्याने उचल बदलता येत नाही.</p>
+  {% endif %}
+</div>
+{% endblock %}

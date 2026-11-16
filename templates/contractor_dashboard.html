@@ -11,10 +11,40 @@
 
 <div class="stats">
   <div class="stat"><span class="stat-label">एकूण कामगार</span><span class="stat-value">{{ total|digits }}</span></div>
-  <div class="stat"><span class="stat-label">सध्या कामावर</span><span class="stat-value">{{ inside|digits }}</span></div>
+  <div class="stat"><span class="stat-label">आज हजर</span><span class="stat-value">{{ present|digits }}</span></div>
+  <div class="stat"><span class="stat-label">सध्या कामावर (आत)</span><span class="stat-value">{{ inside|digits }}</span></div>
   <div class="stat"><span class="stat-label">आज गैरहजर</span><span class="stat-value">{{ absent|digits }}</span></div>
-  <div class="stat"><span class="stat-label">पासवर्ड सेट बाकी</span><span class="stat-value">{{ pending|digits }}</span></div>
+  {% if pending %}<div class="stat"><span class="stat-label">पासवर्ड सेट बाकी</span><span class="stat-value">{{ pending|digits }}</span></div>{% endif %}
 </div>
+
+{% if total %}
+<div class="card today">
+  <h2 class="settle-title">आज कोण हजर आहे</h2>
+  <div class="meter" role="img" aria-label="आज हजर {{ present }} / {{ active }}"><div class="meter-fill" style="width: {{ ((present * 100 / active) | round | int) if active else 0 }}%"></div></div>
+  <p class="muted small">{{ present|digits }} / {{ active|digits }} कामगार आज हजर</p>
+  <div class="today-cols">
+    <div class="today-col in">
+      <h3><span class="dot in"></span>सध्या आत ({{ inside|digits }})</h3>
+      {% for c in cards if c.status == 'in' %}
+        <a class="chip" href="{{ url_for('employee_detail', emp_id=c.e.id) }}">{{ c.e.name }}<small>{{ c.cur_in|mtime }} पासून</small></a>
+      {% else %}<p class="muted small">कोणीही नाही</p>{% endfor %}
+    </div>
+    <div class="today-col out">
+      <h3><span class="dot out"></span>काम करून बाहेर ({{ out_n|digits }})</h3>
+      {% for c in cards if c.status == 'out' %}
+        <a class="chip" href="{{ url_for('employee_detail', emp_id=c.e.id) }}">{{ c.e.name }}<small>{{ c.today_secs|mdur }}</small></a>
+      {% else %}<p class="muted small">कोणीही नाही</p>{% endfor %}
+    </div>
+    <div class="today-col absent">
+      <h3><span class="dot absent"></span>आज गैरहजर ({{ absent|digits }})</h3>
+      {% for c in cards if c.status == 'absent' %}
+        <a class="chip" href="{{ url_for('employee_detail', emp_id=c.e.id) }}">{{ c.e.name }}</a>
+      {% else %}<p class="muted small">कोणीही नाही</p>{% endfor %}
+    </div>
+  </div>
+</div>
+<h2 class="section-title">सर्व कामगार</h2>
+{% endif %}
 
 {% if cards %}
 <div class="emp-list">
@@ -25,7 +55,7 @@
       <div>
         <a class="emp-name" href="{{ url_for('employee_detail', emp_id=e.id) }}">{{ e.name }}</a>
         <div class="muted">युजरनेम: {{ e.username }}{% if e.designation %} · {{ e.designation }}{% endif %}</div>
-        <div class="muted">रोजंदारी: <strong>{% if e.daily_wage is none %}ठरवलेली नाही{% else %}{{ e.daily_wage|mrs }} / दिवस{% endif %}</strong></div>
+        <div class="muted">रोजंदारी: <strong>{% if e.daily_wage is none %}ठरवलेली नाही{% else %}{{ e.daily_wage|mrs }} / दिवस{% endif %}</strong>{% if e.ot_rate %} · OT: <strong>{{ e.ot_rate|mrs }} / तास</strong>{% endif %}</div>
       </div>
       <div>
         {% if c.status == 'pending' %}<span class="badge pending">पासवर्ड सेट बाकी</span>
@@ -50,6 +80,7 @@
 
     <div class="actions">
       <a class="btn small" href="{{ url_for('employee_detail', emp_id=e.id) }}">हजेरी पहा</a>
+      <a class="btn small primary" href="{{ url_for('salary_page', emp_id=e.id) }}">हिशोब / उचल</a>
       <a class="btn small" href="{{ url_for('employee_form', emp_id=e.id) }}">संपादन / रोजंदारी</a>
       <form method="post" action="{{ url_for('employee_reset', emp_id=e.id) }}" class="inline"
             onsubmit="return confirm('{{ 'नवीन कोड तयार होईल' if c.status == 'pending' else 'पासवर्ड रीसेट होईल व नवीन कोड तयार होईल' }}. पुढे जायचे का?');">

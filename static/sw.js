@@ -1,7 +1,7 @@
 /* हजेरी पोर्टल — service worker
    नियम: लॉगिन केलेली पाने/डेटा कधीही कॅश करत नाही (दुसऱ्याचा डेटा दिसू नये, व हजेरीची वेळ चुकू नये).
    फक्त स्टॅटिक फाइल्स (CSS, आयकॉन) व ऑफलाइन पान कॅश होते. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'hajeri-' + VERSION;
 const PRECACHE = ['/offline', '/static/style.css',
   '/static/icons/icon-192.png', '/static/icons/icon-512.png'];

@@ -43,6 +43,11 @@
         {% else %}<span class="badge warn">कमी तास · ठरवायची बाकी{% if d.pay is not none %} (अंदाज){% endif %}</span>{% endif %}
       </div>
 
+      {% if d.ot_secs %}
+      <div class="ot-line"><span class="badge custom">ओव्हरटाइम</span> {{ d.ot_secs|mdur }} जास्त
+        {% if d.ot_pay %}· <strong>{{ d.ot_pay|mrs }}</strong>{% elif manage %}· <span class="muted small">OT दर ठरवलेला नाही</span>{% endif %}</div>
+      {% endif %}
+
       {% if manage and d.decidable %}
       <form method="post" action="{{ url_for('pay_set', emp_id=emp.id) }}" class="payform">
         {{ csrf_input() }}
